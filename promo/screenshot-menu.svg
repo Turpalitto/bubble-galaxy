@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a0533"/>
+      <stop offset="100%" stop-color="#0a1628"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <text x="640" y="200" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="80" fill="#e879f9">BUBBLE GALAXY</text>
+  <g transform="translate(440, 260)">
+    <circle cx="60" cy="60" r="40" fill="#FF3B5C"/><circle cx="160" cy="40" r="50" fill="#FFCC00"/>
+    <circle cx="260" cy="60" r="40" fill="#34C759"/><circle cx="360" cy="50" r="45" fill="#007AFF"/>
+    <circle cx="100" cy="160" r="35" fill="#AF52DE"/><circle cx="220" cy="170" r="42" fill="#FF9500"/>
+    <circle cx="320" cy="160" r="35" fill="#FF2D55"/>
+  </g>
+  <text x="640" y="550" text-anchor="middle" font-family="Arial, sans-serif" font-size="36" fill="#c4b5fd">K1>@ C@>2=O � >AB865=8O � 845@1>@4</text>
+  <text x="640" y="610" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#7c3aed">< 5A:>=5G=K9 @568< � =� #@>25=L 4=O</text>
+</svg>

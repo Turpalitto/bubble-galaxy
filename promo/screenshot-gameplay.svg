@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d0221"/>
+      <stop offset="100%" stop-color="#150830"/>
+    </linearGradient>
+    <radialGradient id="b" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#FF3B5C"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <!-- HUD mock -->
+  <rect x="40" y="30" width="200" height="60" rx="12" fill="#ffffff10" stroke="#a855f7" stroke-width="1"/>
+  <text x="60" y="55" font-family="Arial" font-size="14" fill="#a78bfa">'</text>
+  <text x="60" y="80" font-family="Arial Black" font-size="24" fill="#fff">12 450</text>
+  <rect x="540" y="30" width="200" height="60" rx="12" fill="#ffffff10" stroke="#a855f7" stroke-width="1"/>
+  <text x="640" y="70" text-anchor="middle" font-family="Arial Black" font-size="28" fill="#fff">#@>25=L 3</text>
+  <!-- grid -->
+  <g transform="translate(340, 120)">
+    <rect width="600" height="480" rx="20" fill="#0d0221" stroke="#7c3aed" stroke-width="2"/>
+    <g>
+      <circle cx="80" cy="60" r="22" fill="#FF3B5C"/><circle cx="130" cy="60" r="22" fill="#FFCC00"/>
+      <circle cx="180" cy="60" r="22" fill="#34C759"/><circle cx="230" cy="60" r="22" fill="#007AFF"/>
+      <circle cx="280" cy="60" r="22" fill="#AF52DE"/><circle cx="330" cy="60" r="22" fill="#FF9500"/>
+      <circle cx="380" cy="60" r="22" fill="#FF2D55"/><circle cx="430" cy="60" r="22" fill="#FF3B5C"/>
+      <circle cx="105" cy="100" r="22" fill="#FFCC00"/><circle cx="155" cy="100" r="22" fill="#007AFF"/>
+      <circle cx="205" cy="100" r="22" fill="#34C759"/><circle cx="255" cy="100" r="22" fill="#AF52DE"/>
+      <circle cx="305" cy="100" r="22" fill="#FF9500"/><circle cx="355" cy="100" r="22" fill="#FF3B5C"/>
+      <circle cx="405" cy="100" r="22" fill="#FFCC00"/>
+      <circle cx="80" cy="140" r="22" fill="#34C759"/><circle cx="130" cy="140" r="22" fill="#FF3B5C"/>
+      <circle cx="180" cy="140" r="22" fill="#FFCC00"/><circle cx="230" cy="140" r="22" fill="#AF52DE"/>
+      <circle cx="280" cy="140" r="22" fill="#007AFF"/><circle cx="330" cy="140" r="22" fill="#FF9500"/>
+      <circle cx="380" cy="140" r="22" fill="#FF2D55"/><circle cx="430" cy="140" r="22" fill="#34C759"/>
+    </g>
+    <!-- aim line -->
+    <line x1="300" y1="420" x2="300" y2="200" stroke="#fff" stroke-width="2" opacity="0.3" stroke-dasharray="8 6"/>
+    <circle cx="300" cy="420" r="26" fill="url(#b)"/>
+    <polygon points="300,175 290,195 310,195" fill="#FF3B5C"/>
+  </g>
+  <text x="640" y="680" text-anchor="middle" font-family="Arial" font-size="22" fill="#7c3aed">59<?;59  AB@5;O9, A>18@09 :><1>, 8A?>;L7C9 A?5F?C7K@8</text>
+</svg>

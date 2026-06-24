@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2a1050"/>
+      <stop offset="100%" stop-color="#0d0221"/>
+    </radialGradient>
+    <radialGradient id="b1" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#ff8fab"/>
+      <stop offset="100%" stop-color="#FF3B5C"/>
+    </radialGradient>
+    <radialGradient id="b2" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#ffe566"/>
+      <stop offset="100%" stop-color="#FFCC00"/>
+    </radialGradient>
+    <radialGradient id="b3" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#7dffb0"/>
+      <stop offset="100%" stop-color="#34C759"/>
+    </radialGradient>
+    <radialGradient id="b4" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#66b3ff"/>
+      <stop offset="100%" stop-color="#007AFF"/>
+    </radialGradient>
+    <radialGradient id="b5" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#d9a0ff"/>
+      <stop offset="100%" stop-color="#AF52DE"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- stars -->
+  <circle cx="80" cy="90" r="2" fill="#fff" opacity="0.7"/>
+  <circle cx="420" cy="70" r="1.5" fill="#fff" opacity="0.5"/>
+  <circle cx="350" cy="130" r="2" fill="#fff" opacity="0.6"/>
+  <circle cx="150" cy="160" r="1" fill="#fff" opacity="0.4"/>
+  <circle cx="450" cy="200" r="1.5" fill="#fff" opacity="0.5"/>
+  <!-- bubble cluster -->
+  <circle cx="256" cy="290" r="72" fill="url(#b2)" filter="url(#glow)"/>
+  <circle cx="170" cy="250" r="52" fill="url(#b1)" filter="url(#glow)"/>
+  <circle cx="342" cy="250" r="52" fill="url(#b4)" filter="url(#glow)"/>
+  <circle cx="200" cy="360" r="44" fill="url(#b3)" filter="url(#glow)"/>
+  <circle cx="312" cy="360" r="44" fill="url(#b5)" filter="url(#glow)"/>
+  <!-- shines -->
+  <circle cx="230" cy="268" r="14" fill="#fff" opacity="0.35"/>
+  <circle cx="150" cy="232" r="10" fill="#fff" opacity="0.3"/>
+  <circle cx="322" cy="232" r="10" fill="#fff" opacity="0.3"/>
+  <!-- title -->
+  <text x="256" y="460" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="42" font-weight="900" fill="url(#b5)">BUBBLE</text>
+  <text x="256" y="498" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="36" font-weight="900" fill="#38bdf8">GALAXY</text>
+</svg>
