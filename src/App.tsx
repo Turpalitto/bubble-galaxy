@@ -6,6 +6,7 @@ import GameOverScreen from './components/GameOverScreen';
 import LevelCompleteScreen from './components/LevelCompleteScreen';
 import PauseScreen from './components/PauseScreen';
 import AchievementToastStack, { achievementToToast, type ToastItem } from './components/AchievementToast';
+import ViewportBackdrop from './components/ViewportBackdrop';
 import { getLeaderboardId, type LeaderboardTab } from './components/LeaderboardPanel';
 import {
   LEVELS,
@@ -31,6 +32,7 @@ import {
   showFullscreenAd,
   showRewardedAd,
   requestAuth,
+  isPlayerAuthorized,
 } from './utils/yandexSdk';
 import type { GameState, GameData, PlayerProgress, LevelSessionStats } from './game/types';
 
@@ -57,6 +59,7 @@ export default function App() {
   const [lbTab, setLbTab] = useState<LeaderboardTab>('campaign');
   const [lang, setLang] = useState<GameLang>(resolveLang());
   const [appReady, setAppReady] = useState(false);
+  const [playerAuthorized, setPlayerAuthorized] = useState(false);
 
   const progressRef = useRef<PlayerProgress>(loadLocalProgress());
   const gameStateRef = useRef(gameState);
@@ -131,9 +134,14 @@ export default function App() {
     loadLeaderboard(tab);
   }, [loadLeaderboard]);
 
-  const handleOpenLeaderboard = useCallback(async () => {
-    await requestAuth();
+  const handleOpenLeaderboard = useCallback(() => {
     loadLeaderboard(lbTab);
+  }, [lbTab, loadLeaderboard]);
+
+  const handleLeaderboardAuth = useCallback(async () => {
+    const ok = await requestAuth();
+    setPlayerAuthorized(ok);
+    if (ok) loadLeaderboard(lbTab);
   }, [lbTab, loadLeaderboard]);
 
   useEffect(() => {
@@ -144,6 +152,7 @@ export default function App() {
         applyDocumentLang(sdkLang);
         const p = await loadProgress();
         setGameData((prev) => ({ ...prev, highScore: p.highScore }));
+        setPlayerAuthorized(await isPlayerAuthorized());
         setAppReady(true);
       })
       .catch(() => {
@@ -380,6 +389,7 @@ export default function App() {
           progress={progress}
           achievementCount={progress.achievements.length}
           onSelectLevel={(lvl) => startGame(lvl)}
+          onTapToPlay={() => startGame(0)}
           onEndless={() => startGame(ENDLESS_LEVEL_IDX)}
           onDaily={() => { if (!isDailyCompleted()) startGame(DAILY_LEVEL_IDX); }}
           leaderboardData={lbData}
@@ -388,27 +398,31 @@ export default function App() {
           onLeaderboardTabChange={handleLeaderboardTabChange}
           onOpenLeaderboard={handleOpenLeaderboard}
           onRefreshLeaderboard={() => loadLeaderboard(lbTab)}
+          onLeaderboardAuth={handleLeaderboardAuth}
+          playerAuthorized={playerAuthorized}
         />
       )}
 
       {isPlaying && (
-        <div className="relative w-full h-full flex flex-col items-center" style={{ maxWidth: 480 }}>
-          <div className="w-full z-10 pt-safe pt-1">
-            <HUD
-              lang={lang}
-              score={gameData.score}
-              highScore={gameData.highScore}
-              level={levelDisplay}
-              shotsLeft={gameData.shotsLeft}
-              combo={gameData.combo}
-              reserveColor={reserveColor}
-              dailyPending={dailyPending && gameData.level !== DAILY_LEVEL_IDX}
-              onPause={() => { setGameState('paused'); gameplayStop(); }}
-              onSwap={() => swapRef.current?.()}
-            />
-          </div>
+        <>
+          <ViewportBackdrop />
+          <div className="relative w-full h-full flex flex-col items-center z-10">
+            <div className="w-full z-10 pt-safe pt-1" style={{ maxWidth: 480 }}>
+              <HUD
+                lang={lang}
+                score={gameData.score}
+                highScore={gameData.highScore}
+                level={levelDisplay}
+                shotsLeft={gameData.shotsLeft}
+                combo={gameData.combo}
+                reserveColor={reserveColor}
+                dailyPending={dailyPending && gameData.level !== DAILY_LEVEL_IDX}
+                onPause={() => { setGameState('paused'); gameplayStop(); }}
+                onSwap={() => swapRef.current?.()}
+              />
+            </div>
 
-          <div className="flex-1 w-full flex items-center justify-center pb-1 px-1 min-h-0" data-game-area>
+          <div className="flex-1 w-full flex items-center justify-center pb-1 px-1 min-h-0" style={{ maxWidth: 480 }} data-game-area>
             <GameCanvas
               gameData={gameData}
               lang={lang}
@@ -457,7 +471,8 @@ export default function App() {
               isCampaignComplete={isCampaignComplete}
             />
           )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

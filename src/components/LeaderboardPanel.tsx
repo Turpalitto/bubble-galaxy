@@ -12,6 +12,8 @@ interface LeaderboardPanelProps {
   onTabChange: (tab: LeaderboardTab) => void;
   onBack: () => void;
   onRefresh: () => void;
+  playerAuthorized?: boolean;
+  onRequestAuth?: () => void;
 }
 
 export default function LeaderboardPanel({
@@ -22,6 +24,8 @@ export default function LeaderboardPanel({
   onTabChange,
   onBack,
   onRefresh,
+  playerAuthorized = false,
+  onRequestAuth,
 }: LeaderboardPanelProps) {
   const loc = localeOf(lang);
   const tabLabels: Record<LeaderboardTab, string> = {
@@ -118,6 +122,18 @@ export default function LeaderboardPanel({
             <p className="text-purple-600 text-[10px] text-center mt-3 px-2">
               {t('lbHintId', lang).replace('{id}', getLeaderboardId(tab))}
             </p>
+
+            {!playerAuthorized && onRequestAuth && (
+              <div className="mt-4 text-center">
+                <p className="text-purple-400 text-xs mb-2">{t('signInHint', lang)}</p>
+                <button
+                  onClick={onRequestAuth}
+                  className="w-full py-2.5 rounded-xl bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-300 font-bold text-sm transition-all active:scale-95"
+                >
+                  {t('signInYandex', lang)}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

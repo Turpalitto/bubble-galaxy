@@ -26,6 +26,9 @@ import {
   getMaxShots,
   getMaxRow,
   easeOutBounce,
+  TUTORIAL_SHOOT_COLOR,
+  findAimedSpecialBubble,
+  getSpecialTelegraph,
 } from '../game/engine';
 import { sound } from '../utils/sound';
 import type { Bubble, Projectile, ParticleEffect, GameData, LevelSessionStats } from '../game/types';
@@ -58,6 +61,133 @@ interface GameCanvasProps {
 const TOP_OFFSET = 80;
 const SHOOTER_FROM_BOTTOM = 110;
 const INTRO_FRAMES = 60;
+const DANGER_MARGIN = 130;
+
+function getDangerY(h: number): number {
+  return h - SHOOTER_FROM_BOTTOM - BUBBLE_RADIUS * 2.5;
+}
+
+function getDangerProximity(h: number, bubbles: Bubble[]): number {
+  const active = bubbles.filter((b) => !b.popping && !b.falling);
+  if (active.length === 0) return 0;
+  const lowest = active.reduce((max, b) => (b.y > max ? b.y : max), 0);
+  const margin = getDangerY(h) - lowest;
+  if (margin > DANGER_MARGIN) return 0;
+  return 1 - Math.max(0, margin) / DANGER_MARGIN;
+}
+
+function drawDangerPulse(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  proximity: number,
+  frame: number
+) {
+  if (proximity <= 0) return;
+  const dangerY = getDangerY(h);
+  const pulse = 0.55 + 0.45 * Math.sin(frame * 0.14);
+  const alpha = proximity * pulse * 0.55;
+
+  ctx.save();
+  const grad = ctx.createLinearGradient(0, dangerY - 50, 0, dangerY + 30);
+  grad.addColorStop(0, 'rgba(255,0,0,0)');
+  grad.addColorStop(0.55, `rgba(255,40,40,${alpha * 0.35})`);
+  grad.addColorStop(1, `rgba(255,0,0,${alpha * 0.7})`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, dangerY - 50, w, 80);
+
+  ctx.strokeStyle = `rgba(255,80,80,${alpha})`;
+  ctx.lineWidth = 2 + proximity * 2;
+  ctx.setLineDash([10, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, dangerY);
+  ctx.lineTo(w, dangerY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawScreenFlash(ctx: CanvasRenderingContext2D, w: number, h: number, alpha: number) {
+  if (alpha <= 0.01) return;
+  ctx.save();
+  ctx.fillStyle = `rgba(255,220,120,${alpha})`;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+function drawSpecialTelegraph(
+  ctx: CanvasRenderingContext2D,
+  zones: { x: number; y: number; r: number; kind: string }[],
+  intensity: number,
+  frame: number
+) {
+  if (zones.length === 0) return;
+  const pulse = 0.5 + 0.5 * Math.sin(frame * 0.18);
+  const colors: Record<string, string> = {
+    bomb: '255,100,0',
+    rainbow: '200,100,255',
+    lightning: '0,180,255',
+    freeze: '136,221,255',
+  };
+
+  ctx.save();
+  zones.forEach((z) => {
+    const rgb = colors[z.kind] ?? '255,255,255';
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, z.r * (0.92 + pulse * 0.08), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${rgb},${0.08 * intensity + pulse * 0.06})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(${rgb},${0.25 * intensity + pulse * 0.35})`;
+    ctx.lineWidth = 1.5 + intensity;
+    ctx.setLineDash(z.kind === 'lightning' ? [4, 4] : []);
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawTutorialAimGuide(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  aimPts: { x: number; y: number }[],
+  frame: number
+) {
+  if (aimPts.length === 0) return;
+  const pulse = 0.45 + 0.55 * Math.sin(frame * 0.11);
+
+  ctx.save();
+  ctx.setLineDash([8, 8]);
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = `rgba(255,220,80,${0.35 + pulse * 0.45})`;
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = '#FFCC00';
+  ctx.beginPath();
+  ctx.moveTo(sx, sy - BUBBLE_RADIUS);
+  aimPts.forEach((pt) => ctx.lineTo(pt.x, pt.y));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const tip = aimPts[Math.min(2, aimPts.length - 1)];
+  const prev = aimPts[Math.min(1, aimPts.length - 1)] ?? { x: sx, y: sy };
+  const angle = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+  const arrowLen = 14 + pulse * 6;
+
+  for (let i = 0; i < 3; i++) {
+    const t = i / 3;
+    const ax = tip.x - Math.cos(angle) * arrowLen * t;
+    const ay = tip.y - Math.sin(angle) * arrowLen * t;
+    ctx.globalAlpha = (1 - t) * pulse;
+    ctx.fillStyle = '#FFCC00';
+    ctx.beginPath();
+    ctx.moveTo(ax + Math.cos(angle) * 10, ay + Math.sin(angle) * 10);
+    ctx.lineTo(ax + Math.cos(angle + 2.6) * 7, ay + Math.sin(angle + 2.6) * 7);
+    ctx.lineTo(ax + Math.cos(angle - 2.6) * 7, ay + Math.sin(angle - 2.6) * 7);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
 function drawCannonNozzle(
   ctx: CanvasRenderingContext2D,
@@ -197,6 +327,9 @@ export default function GameCanvas({
     sessionMisses: 0,
     sessionMaxCombo: 0,
     consecutiveHits: 0,
+    shotsFired: 0,
+    hitStopFrames: 0,
+    flashAlpha: 0,
   });
   const isPausedRef = useRef(isPaused);
   const gameSizeRef = useRef({ w: 400, h: 700 });
@@ -204,6 +337,20 @@ export default function GameCanvas({
   const triggerShake = useCallback((intensity: number) => {
     shakeRef.current.intensity = Math.max(shakeRef.current.intensity, intensity);
   }, []);
+
+  const triggerJuice = useCallback((combo: number, floatCount = 0) => {
+    const s = stateRef.current;
+    if (combo >= 3) {
+      s.hitStopFrames = Math.max(s.hitStopFrames, combo >= 5 ? 6 : 5);
+      s.flashAlpha = Math.max(s.flashAlpha, combo >= 5 ? 0.5 : 0.38);
+      triggerShake(combo >= 5 ? 10 : 6);
+    }
+    if (floatCount >= 5) {
+      s.hitStopFrames = Math.max(s.hitStopFrames, 4);
+      s.flashAlpha = Math.max(s.flashAlpha, 0.28);
+      triggerShake(7);
+    }
+  }, [triggerShake]);
 
   useEffect(() => {
     isPausedRef.current = isPaused;
@@ -229,9 +376,25 @@ export default function GameCanvas({
     s.sessionMisses = 0;
     s.sessionMaxCombo = 0;
     s.consecutiveHits = 0;
+    s.shotsFired = 0;
+    s.hitStopFrames = 0;
+    s.flashAlpha = 0;
     s.bubbles = generateGrid(s.levelIdx, canvasW, TOP_OFFSET);
-    s.nextColor = randomColor(s.levelIdx);
-    s.reserveColor = randomColor(s.levelIdx);
+    if (s.levelIdx === 0) {
+      s.nextColor = TUTORIAL_SHOOT_COLOR;
+      s.reserveColor = '#007AFF';
+      const target = s.bubbles.find((b) => b.row === 3 && b.col === 4);
+      if (target) {
+        const sy = gameSizeRef.current.h - SHOOTER_FROM_BOTTOM;
+        const sx = gameSizeRef.current.w / 2;
+        let angle = Math.atan2(target.y - sy, target.x - sx);
+        angle = Math.max(-Math.PI + 0.12, Math.min(-0.12, angle));
+        s.angle = angle;
+      }
+    } else {
+      s.nextColor = randomColor(s.levelIdx);
+      s.reserveColor = randomColor(s.levelIdx);
+    }
     onReserveColorChange?.(s.reserveColor);
   }, [gameData.level, onReserveColorChange]);
 
@@ -279,6 +442,7 @@ export default function GameCanvas({
       active: true,
     };
     s.shotsLeft--;
+    s.shotsFired++;
     s.canShoot = false;
     s.nextColor = s.reserveColor;
     s.reserveColor = randomColor(s.levelIdx);
@@ -340,19 +504,6 @@ export default function GameCanvas({
     window.addEventListener('resize', resize);
     const ctx = canvas.getContext('2d')!;
 
-    let starCache: { x: number; y: number; r: number; a: number; twinkle: number }[] | null = null;
-    function ensureStars(w: number, h: number) {
-      if (!starCache || starCache.length === 0) {
-        starCache = Array.from({ length: 80 }, () => ({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          r: Math.random() * 1.5 + 0.3,
-          a: Math.random() * 0.7 + 0.3,
-          twinkle: Math.random() * Math.PI * 2,
-        }));
-      }
-    }
-
     let frame = 0;
 
     function popBubbles(bubbles: Bubble[], w: number, shooterColor: string) {
@@ -366,6 +517,7 @@ export default function GameCanvas({
         sound.playPop(b.color);
 
         if (b.special) {
+          sound.playSpecial(b.special);
           const effect = applySpecialEffect(b, s.bubbles, shooterColor, w);
           if (effect.frozenShots) s.frozenShots += effect.frozenShots;
           effect.removed.forEach((eb) => {
@@ -399,7 +551,12 @@ export default function GameCanvas({
 
       if (s.swapSpin > 0) s.swapSpin = Math.max(0, s.swapSpin - 0.08);
 
-      if (!isPausedRef.current) {
+      if (s.flashAlpha > 0) s.flashAlpha *= 0.78;
+
+      const physicsActive = s.hitStopFrames <= 0 && !isPausedRef.current;
+      if (s.hitStopFrames > 0) s.hitStopFrames--;
+
+      if (physicsActive) {
         if (s.projectile?.active) {
           const p = s.projectile;
           p.x += p.vx;
@@ -476,7 +633,8 @@ export default function GameCanvas({
         s.sessionMaxCombo = Math.max(s.sessionMaxCombo, s.combo);
         callbacksRef.current.onConsecutiveHits?.(s.consecutiveHits);
         if (s.combo > 1) sound.playCombo(s.combo);
-        if (s.combo >= 3) triggerShake(s.combo >= 5 ? 8 : 4);
+        if (matches.length >= 5) triggerJuice(3);
+        else triggerJuice(s.combo);
 
         const comboBonus = s.combo > 1 ? Math.pow(COMBO_MULTIPLIER, s.combo - 1) : 1;
         const earned = Math.floor(matches.length * POINTS_PER_BUBBLE * comboBonus);
@@ -501,7 +659,7 @@ export default function GameCanvas({
               sound.playPop(b.color);
             });
             callbacksRef.current.onBubblesPopped?.(floating.length);
-            if (floating.length >= 5) triggerShake(6);
+            triggerJuice(0, floating.length);
             if (floating.length >= 3) {
               const fcx = floating.reduce((sum, b) => sum + b.x, 0) / floating.length;
               const fcy = floating.reduce((sum, b) => sum + b.y, 0) / floating.length;
@@ -526,7 +684,7 @@ export default function GameCanvas({
       if (s.gameOverFired) return;
       const active = s.bubbles.filter((b) => !b.popping && !b.falling);
       const lowest = active.reduce((max, b) => (b.y > max ? b.y : max), 0);
-      if (lowest > h - SHOOTER_FROM_BOTTOM - BUBBLE_RADIUS * 2.5) {
+      if (lowest > getDangerY(h)) {
         s.gameOverFired = true;
         sound.playGameOver();
         setTimeout(() => callbacksRef.current.onGameOver(), 600);
@@ -620,30 +778,6 @@ export default function GameCanvas({
 
       ctx.clearRect(0, 0, w, h);
 
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-      bgGrad.addColorStop(0, '#0d0221');
-      bgGrad.addColorStop(0.5, '#150830');
-      bgGrad.addColorStop(1, '#0a1628');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, w, h);
-
-      ensureStars(w, h);
-      if (starCache) {
-        starCache.forEach((st) => {
-          const twinkle = 0.5 + 0.5 * Math.sin(frameNum * 0.03 + st.twinkle);
-          ctx.beginPath();
-          ctx.arc(st.x, st.y, st.r * twinkle, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255,255,255,${st.a * twinkle})`;
-          ctx.fill();
-        });
-      }
-
-      const ng = ctx.createRadialGradient(w * 0.3, h * 0.2, 0, w * 0.3, h * 0.2, w * 0.5);
-      ng.addColorStop(0, 'rgba(138,43,226,0.06)');
-      ng.addColorStop(1, 'transparent');
-      ctx.fillStyle = ng;
-      ctx.fillRect(0, 0, w, h);
-
       ctx.strokeStyle = 'rgba(180,100,255,0.5)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 4]);
@@ -653,10 +787,16 @@ export default function GameCanvas({
       ctx.stroke();
       ctx.setLineDash([]);
 
+      const dangerProx = getDangerProximity(h, s.bubbles);
+      drawDangerPulse(ctx, w, h, dangerProx, frameNum);
+
+      const { x: sx, y: sy } = getShooterPos();
+      const showTutorialAim = s.levelIdx === 0 && s.shotsFired < 2;
+      let aimPts: { x: number; y: number }[] = [];
+
       if (s.canShoot && !s.projectile?.active) {
-        const { x: sx, y: sy } = getShooterPos();
-        const aimPts = getAimPoints(sx, sy, s.angle, w, h, 5);
-        if (aimPts.length > 0) {
+        aimPts = getAimPoints(sx, sy, s.angle, w, h, showTutorialAim ? 8 : 5);
+        if (!showTutorialAim && aimPts.length > 0) {
           ctx.setLineDash([6, 10]);
           ctx.lineWidth = 1.5;
           ctx.strokeStyle = 'rgba(255,255,255,0.2)';
@@ -667,6 +807,17 @@ export default function GameCanvas({
           ctx.setLineDash([]);
         }
       }
+
+      // Телеграф спец-пузырей: слабый пульс всегда, яркий при наведении прицела
+      const aimedSpecial = s.canShoot && !s.projectile?.active
+        ? findAimedSpecialBubble(sx, sy, s.angle, w, h, s.bubbles)
+        : null;
+      s.bubbles.forEach((b) => {
+        if (!b.special || b.popping || b.falling) return;
+        const isTarget = aimedSpecial === b;
+        const zones = getSpecialTelegraph(b, s.bubbles, s.nextColor, w, TOP_OFFSET);
+        drawSpecialTelegraph(ctx, zones, isTarget ? 1 : 0.35, frameNum);
+      });
 
       const sortedBubbles = [...s.bubbles].sort((a, b) => a.row - b.row);
       sortedBubbles.forEach((b, idx) => {
@@ -721,35 +872,39 @@ export default function GameCanvas({
         ctx.restore();
       });
 
-      const { x: sx, y: sy } = getShooterPos();
-      const platGrad = ctx.createLinearGradient(sx - 60, 0, sx + 60, 0);
+      const { x: sx2, y: sy2 } = getShooterPos();
+      const platGrad = ctx.createLinearGradient(sx2 - 60, 0, sx2 + 60, 0);
       platGrad.addColorStop(0, 'rgba(138,43,226,0)');
       platGrad.addColorStop(0.5, 'rgba(138,43,226,0.4)');
       platGrad.addColorStop(1, 'rgba(138,43,226,0)');
       ctx.fillStyle = platGrad;
-      ctx.fillRect(sx - 60, sy + BUBBLE_RADIUS + 3, 120, 2);
+      ctx.fillRect(sx2 - 60, sy2 + BUBBLE_RADIUS + 3, 120, 2);
 
       const glowPulse = 0.4 + 0.3 * Math.sin(frameNum * 0.08);
       const shooterSpin = s.swapSpin * Math.PI * 2;
       ctx.save();
-      ctx.translate(sx, sy);
+      ctx.translate(sx2, sy2);
       ctx.rotate(shooterSpin);
       drawBubble(ctx, 0, 0, s.nextColor, BUBBLE_RADIUS * 1.1, 1, glowPulse);
       ctx.restore();
 
-      drawCannonNozzle(ctx, sx, sy, s.angle, s.nextColor, glowPulse);
+      drawCannonNozzle(ctx, sx2, sy2, s.angle, s.nextColor, glowPulse);
+
+      if (showTutorialAim && aimPts.length > 0) {
+        drawTutorialAimGuide(ctx, sx2, sy2, aimPts, frameNum);
+      }
 
       if (s.frozenShots > 0) {
         ctx.font = `bold ${Math.floor(w * 0.03)}px Arial`;
         ctx.fillStyle = '#88ddff';
         ctx.textAlign = 'center';
-        ctx.fillText(`❄️ ${s.frozenShots}`, sx, sy - BUBBLE_RADIUS * 2);
+        ctx.fillText(`❄️ ${s.frozenShots}`, sx2, sy2 - BUBBLE_RADIUS * 2);
       }
 
       const maxShots = getMaxShots(s.levelIdx);
       const barW = w * 0.45;
       const barH = 5;
-      const barX = sx - barW / 2;
+      const barX = sx2 - barW / 2;
       const barY = h - 28;
       ctx.fillStyle = 'rgba(255,255,255,0.1)';
       ctx.beginPath();
@@ -765,6 +920,8 @@ export default function GameCanvas({
       ctx.roundRect(barX, barY, barW * shotRatio, barH, 3);
       ctx.fill();
 
+      drawScreenFlash(ctx, w, h, s.flashAlpha);
+
       ctx.restore();
     }
 
@@ -774,7 +931,7 @@ export default function GameCanvas({
       cancelAnimationFrame(stateRef.current.animFrame);
       window.removeEventListener('resize', resize);
     };
-  }, [getShooterPos, triggerShake]);
+  }, [getShooterPos, triggerShake, triggerJuice]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -810,7 +967,7 @@ export default function GameCanvas({
       <canvas
         ref={canvasRef}
         className="touch-none cursor-crosshair rounded-2xl shadow-2xl"
-        style={{ display: 'block', margin: '0 auto', boxShadow: '0 0 40px rgba(138,43,226,0.3)' }}
+        style={{ display: 'block', margin: '0 auto', boxShadow: '0 0 40px rgba(138,43,226,0.3)', background: 'transparent' }}
         onPointerMove={handlePointerMove}
         onClick={() => shoot()}
         onTouchMove={handleTouchMove}

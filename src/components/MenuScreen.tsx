@@ -16,6 +16,7 @@ interface MenuScreenProps {
   progress: PlayerProgress;
   achievementCount: number;
   onSelectLevel: (level: number) => void;
+  onTapToPlay: () => void;
   onEndless: () => void;
   onDaily: () => void;
   leaderboardData: LeaderboardData | null;
@@ -24,6 +25,8 @@ interface MenuScreenProps {
   onLeaderboardTabChange: (tab: LeaderboardTab) => void;
   onOpenLeaderboard: () => void;
   onRefreshLeaderboard: () => void;
+  onLeaderboardAuth?: () => void;
+  playerAuthorized?: boolean;
 }
 
 export default function MenuScreen({
@@ -33,6 +36,7 @@ export default function MenuScreen({
   progress,
   achievementCount,
   onSelectLevel,
+  onTapToPlay,
   onEndless,
   onDaily,
   leaderboardData,
@@ -41,6 +45,8 @@ export default function MenuScreen({
   onLeaderboardTabChange,
   onOpenLeaderboard,
   onRefreshLeaderboard,
+  onLeaderboardAuth,
+  playerAuthorized = false,
 }: MenuScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef(0);
@@ -122,6 +128,8 @@ export default function MenuScreen({
           onTabChange={onLeaderboardTabChange}
           onBack={() => setView('main')}
           onRefresh={onRefreshLeaderboard}
+          playerAuthorized={playerAuthorized}
+          onRequestAuth={onLeaderboardAuth}
         />
       )}
 
@@ -174,13 +182,20 @@ export default function MenuScreen({
         </div>
 
         <button
-          onClick={() => setView('levels')}
+          onClick={onTapToPlay}
           className="relative w-full group"
         >
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 blur-xl opacity-50 group-hover:opacity-80 transition-opacity" />
-          <div className="relative w-full bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 hover:from-purple-400 hover:via-pink-400 hover:to-indigo-400 text-white font-black text-xl py-3.5 rounded-2xl transition-all active:scale-95 border border-white/20 shadow-2xl">
-            {progress.campaignComplete ? `🗺️ ${t('levels', lang)}` : `🚀 ${t('campaign', lang)}`}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 blur-xl opacity-60 group-hover:opacity-90 transition-opacity animate-pulse" />
+          <div className="relative w-full bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 hover:from-purple-400 hover:via-pink-400 hover:to-indigo-400 text-white font-black text-2xl py-4 rounded-2xl transition-all active:scale-95 border border-white/25 shadow-2xl tracking-wide">
+            ▶ {t('tapToPlay', lang)}
           </div>
+        </button>
+
+        <button
+          onClick={() => setView('levels')}
+          className="w-full bg-white/5 hover:bg-white/10 border border-white/15 text-purple-200 font-bold py-2.5 rounded-2xl transition-all active:scale-95 text-sm"
+        >
+          {progress.campaignComplete ? `🗺️ ${t('levels', lang)}` : `🗺️ ${t('levelMap', lang)}`}
         </button>
 
         <div className="grid grid-cols-2 gap-2 w-full">

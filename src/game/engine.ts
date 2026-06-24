@@ -42,8 +42,143 @@ export function easeOutBounce(t: number): number {
 
 const SPECIAL_TYPES: BubbleSpecial[] = ['bomb', 'rainbow', 'lightning', 'freeze'];
 
+export const TUTORIAL_SHOOT_COLOR = '#FF3B5C';
+
 function pickSpecialType(): BubbleSpecial {
   return SPECIAL_TYPES[Math.floor(Math.random() * SPECIAL_TYPES.length)];
+}
+
+function buildBubble(
+  row: number,
+  col: number,
+  color: string,
+  canvasWidth: number,
+  topOffset: number,
+  special?: BubbleSpecial
+): Bubble {
+  return {
+    x: getBubbleX(col, row, canvasWidth),
+    y: getBubbleY(row, topOffset),
+    color,
+    row,
+    col,
+    special,
+  };
+}
+
+/** Level 1 — гарантированный «вау»: 1–2 выстрела → крупный обвал через findFloating */
+export function generateTutorialGrid(canvasWidth: number, topOffset: number): Bubble[] {
+  const R = TUTORIAL_SHOOT_COLOR;
+  const Y = '#FFCC00';
+  const G = '#34C759';
+  const B = '#007AFF';
+  const O = '#FF9500';
+  const P = '#AF52DE';
+
+  type Cell = { row: number; col: number; color: string };
+  const cells: Cell[] = [
+  // Ряд 0 — якорь (связь с верхом)
+    ...([R, Y, G, B, O, P, R, Y, G, B, R] as const).map((c, col) => ({ row: 0, col, color: c })),
+    // Красный массив в центре
+    { row: 1, col: 3, color: R }, { row: 1, col: 4, color: R }, { row: 1, col: 5, color: R },
+    { row: 1, col: 6, color: R }, { row: 1, col: 7, color: R },
+    { row: 2, col: 4, color: R }, { row: 2, col: 5, color: R }, { row: 2, col: 6, color: R },
+    { row: 3, col: 3, color: R }, { row: 3, col: 4, color: R }, { row: 3, col: 5, color: R },
+    { row: 3, col: 6, color: R }, { row: 3, col: 7, color: R },
+    // Мостик
+    { row: 4, col: 5, color: R },
+    // Висячие острова (отвалятся после обвала красного)
+    { row: 5, col: 1, color: B }, { row: 5, col: 2, color: B },
+    { row: 5, col: 3, color: Y }, { row: 5, col: 4, color: Y }, { row: 5, col: 5, color: Y },
+    { row: 5, col: 6, color: G }, { row: 5, col: 7, color: G },
+  ];
+
+  return cells.map((c) => buildBubble(c.row, c.col, c.color, canvasWidth, topOffset));
+}
+
+/** Зона поражения спец-пузыря для телеграфа при прицеливании */
+export function getSpecialTelegraph(
+  bubble: Bubble,
+  _bubbles: Bubble[],
+  _shooterColor: string,
+  canvasWidth: number,
+  topOffset: number
+): { x: number; y: number; r: number; kind: BubbleSpecial }[] {
+  if (!bubble.special) return [];
+
+  const zones: { x: number; y: number; r: number; kind: BubbleSpecial }[] = [];
+
+  switch (bubble.special) {
+    case 'bomb': {
+      const r = BUBBLE_RADIUS * 4.2;
+      zones.push({ x: bubble.x, y: bubble.y, r, kind: 'bomb' });
+      break;
+    }
+    case 'lightning': {
+      for (let row = 0; row < MAX_GRID_ROWS; row++) {
+        const cols = row % 2 === 0 ? GRID_COLS : GRID_COLS - 1;
+        for (let dc = -1; dc <= 1; dc++) {
+          const col = bubble.col + dc;
+          if (col < 0 || col >= cols) continue;
+          zones.push({
+            x: getBubbleX(col, row, canvasWidth),
+            y: getBubbleY(row, topOffset),
+            r: BUBBLE_RADIUS * 0.95,
+            kind: 'lightning',
+          });
+        }
+      }
+      break;
+    }
+    case 'rainbow': {
+      getNeighborCells(bubble.row, bubble.col).forEach((n) => {
+        if (n.row < 0) return;
+        zones.push({
+          x: getBubbleX(n.col, n.row, canvasWidth),
+          y: getBubbleY(n.row, topOffset),
+          r: BUBBLE_RADIUS * 1.05,
+          kind: 'rainbow',
+        });
+      });
+      zones.push({ x: bubble.x, y: bubble.y, r: BUBBLE_RADIUS, kind: 'rainbow' });
+      break;
+    }
+    case 'freeze':
+      zones.push({ x: bubble.x, y: bubble.y, r: BUBBLE_RADIUS * 1.8, kind: 'freeze' });
+      break;
+  }
+
+  return zones;
+}
+
+/** Ближайший спец-пузырь к линии прицела */
+export function findAimedSpecialBubble(
+  startX: number,
+  startY: number,
+  angle: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  bubbles: Bubble[]
+): Bubble | null {
+  const aimPts = getAimPoints(startX, startY, angle, canvasWidth, canvasHeight, 8);
+  const specials = bubbles.filter((b) => b.special && !b.popping && !b.falling);
+  if (specials.length === 0 || aimPts.length === 0) return null;
+
+  let best: Bubble | null = null;
+  let bestDist = Infinity;
+
+  for (const sp of specials) {
+    for (const pt of aimPts) {
+      const dx = sp.x - pt.x;
+      const dy = sp.y - pt.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < BUBBLE_RADIUS * 2.5 && d < bestDist) {
+        bestDist = d;
+        best = sp;
+      }
+    }
+  }
+  return best;
 }
 
 export function generateGrid(
@@ -53,6 +188,10 @@ export function generateGrid(
 ): Bubble[] {
   if (levelIdx === DAILY_LEVEL_IDX) {
     return generateDailyGrid(getDailySeed(), canvasWidth, topOffset);
+  }
+
+  if (levelIdx === 0) {
+    return generateTutorialGrid(canvasWidth, topOffset);
   }
 
   let rows: number;
@@ -90,6 +229,7 @@ export function generateGrid(
 }
 
 export function randomColor(levelIdx: number): string {
+  if (levelIdx === 0) return TUTORIAL_SHOOT_COLOR;
   if (levelIdx === ENDLESS_LEVEL_IDX) {
     return BUBBLE_COLORS[Math.floor(Math.random() * BUBBLE_COLORS.length)];
   }

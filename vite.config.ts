@@ -11,6 +11,15 @@ const __dirname = path.dirname(__filename);
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), viteSingleFile()],
+  server: {
+    proxy: {
+      "/sdk.js": {
+        target: "https://yandex.ru",
+        changeOrigin: true,
+        rewrite: () => "/games/sdk/v2",
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

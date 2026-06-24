@@ -49,6 +49,24 @@ export type LeaderboardsApi = {
   setLeaderboardScore?: (name: string, score: number) => Promise<void>;
 };
 
+function emptyLeaderboard(boardName: string): LeaderboardData {
+  return {
+    title: boardName,
+    entries: [],
+    userRank: null,
+    userScore: null,
+  };
+}
+
+function devMockLeaderboard(boardName: string, userHighScore: number): LeaderboardData {
+  return {
+    title: boardName,
+    entries: MOCK_ENTRIES,
+    userRank: userHighScore > 0 ? 6 : null,
+    userScore: userHighScore > 0 ? userHighScore : null,
+  };
+}
+
 async function fetchEntries(api: LeaderboardsApi, boardName: string): Promise<YaLeaderboardResult> {
   const opts: LeaderboardFetchOpts = {
     quantityTop: 10,
@@ -83,38 +101,35 @@ export async function fetchLeaderboard(
   userHighScore: number
 ): Promise<LeaderboardData> {
   if (!api) {
-    return {
-      title: boardName,
-      entries: MOCK_ENTRIES,
-      userRank: userHighScore > 0 ? 6 : null,
-      userScore: userHighScore > 0 ? userHighScore : null,
-    };
+    if (import.meta.env.DEV) return devMockLeaderboard(boardName, userHighScore);
+    return emptyLeaderboard(boardName);
   }
 
   try {
     const result = await fetchEntries(api, boardName);
+    const userRank0 = result.userRank;
 
-    const entries: LeaderboardEntry[] = (result.entries ?? []).map((e, i) => ({
-      rank: e.rank ?? i + 1,
-      name: e.player?.publicName || 'Player',
-      score: e.score,
-      isUser: result.userRank === e.rank,
-    }));
+    const entries: LeaderboardEntry[] = (result.entries ?? []).map((e, i) => {
+      const rank = e.rank ?? i + 1;
+      return {
+        rank,
+        name: e.player?.publicName || 'Player',
+        score: e.score,
+        isUser: userRank0 != null && rank === userRank0 + 1,
+      };
+    });
 
     const userEntry = entries.find((e) => e.isUser);
+    const displayRank = userRank0 != null ? userRank0 + 1 : userEntry?.rank ?? null;
 
     return {
       title: result.leaderboard?.title?.ru || boardName,
       entries,
-      userRank: result.userRank ?? userEntry?.rank ?? null,
+      userRank: displayRank,
       userScore: userEntry?.score ?? null,
     };
   } catch {
-    return {
-      title: boardName,
-      entries: MOCK_ENTRIES,
-      userRank: null,
-      userScore: null,
-    };
+    if (import.meta.env.DEV) return devMockLeaderboard(boardName, userHighScore);
+    return emptyLeaderboard(boardName);
   }
 }
