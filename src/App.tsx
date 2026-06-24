@@ -7,6 +7,7 @@ import LevelCompleteScreen from './components/LevelCompleteScreen';
 import PauseScreen from './components/PauseScreen';
 import AchievementToastStack, { achievementToToast, type ToastItem } from './components/AchievementToast';
 import ViewportBackdrop from './components/ViewportBackdrop';
+import Preloader from './components/Preloader';
 import { getLeaderboardId, type LeaderboardTab } from './components/LeaderboardPanel';
 import {
   LEVELS,
@@ -33,6 +34,8 @@ import {
   showRewardedAd,
   requestAuth,
   isPlayerAuthorized,
+  subscribeToSdkEvents,
+  unsubscribeFromSdkEvents,
 } from './utils/yandexSdk';
 import type { GameState, GameData, PlayerProgress, LevelSessionStats } from './game/types';
 
@@ -86,6 +89,7 @@ export default function App() {
     setProgress(merged);
     saveLocalProgress(merged);
     setToasts((prev) => [...prev, toast]);
+    sound.playAchievement();
     savePlayerData(merged, true);
   }, [lang]);
 
@@ -150,22 +154,39 @@ export default function App() {
         const sdkLang = resolveLang(getSdkLang());
         setLang(sdkLang);
         applyDocumentLang(sdkLang);
+
+        subscribeToSdkEvents({
+          onPause: () => {
+            gameplayStop();
+            sound.pauseForAd();
+            if (gameStateRef.current === 'playing') {
+              setGameState('paused');
+            }
+          },
+          onResume: () => {
+            sound.resumeAfterAd();
+            if (gameStateRef.current === 'playing' || gameStateRef.current === 'paused') {
+              gameplayStart();
+            }
+          },
+        });
+
         const p = await loadProgress();
         setGameData((prev) => ({ ...prev, highScore: p.highScore }));
         setPlayerAuthorized(await isPlayerAuthorized());
         setAppReady(true);
+        signalGameReady();
       })
       .catch(() => {
         applyDocumentLang(resolveLang());
         setAppReady(true);
+        signalGameReady();
       });
-  }, [loadProgress]);
 
-  useEffect(() => {
-    if (appReady && gameState === 'menu') {
-      signalGameReady();
-    }
-  }, [appReady, gameState, signalGameReady]);
+    return () => {
+      unsubscribeFromSdkEvents();
+    };
+  }, [loadProgress, signalGameReady]);
 
   useEffect(() => {
     const interval = setInterval(() => saveProgress({}, false), 120000);
@@ -183,16 +204,20 @@ export default function App() {
   }, [gameState]);
 
   const pauseOnBlur = useCallback(() => {
+    gameplayStop();
     sound.pauseForAd();
     if (gameStateRef.current === 'playing') {
       setGameState('paused');
-      gameplayStop();
     }
   }, []);
 
   const resumeOnFocus = useCallback(() => {
-    if (!sound.isMuted() && gameStateRef.current === 'playing') {
-      sound.resumeAfterAd();
+    sound.resumeAfterAd();
+    if (gameStateRef.current === 'paused') {
+      setGameState('playing');
+      gameplayStart();
+    } else if (gameStateRef.current === 'playing') {
+      gameplayStart();
     }
   }, []);
 
@@ -302,11 +327,13 @@ export default function App() {
       if (score >= 10000) unlockAchievement('endless_10k');
     }
     saveProgress(updates, true);
-    showFullscreenAd({
-      onOpen: pauseForAd,
-      onClose: () => resumeAfterAd(false),
-      onError: () => resumeAfterAd(false),
-    });
+    setTimeout(() => {
+      showFullscreenAd({
+        onOpen: pauseForAd,
+        onClose: () => resumeAfterAd(false),
+        onError: () => resumeAfterAd(false),
+      });
+    }, 1000);
   }, [gameData.score, gameData.level, saveProgress, submitScore, unlockAchievement, pauseForAd, resumeAfterAd]);
 
   const handleLevelComplete = useCallback((stars: number) => {
@@ -357,6 +384,17 @@ export default function App() {
     startGame(next);
   }, [gameData.level, startGame]);
 
+  const handleResume = useCallback(() => {
+    setGameState('playing');
+    gameplayStart();
+    sound.unlock();
+  }, []);
+
+  const handleMenu = useCallback(() => {
+    setGameState('menu');
+    gameplayStop();
+  }, []);
+
   const isPlaying = gameState === 'playing' || gameState === 'paused' ||
     gameState === 'gameOver' || gameState === 'levelComplete';
 
@@ -365,6 +403,10 @@ export default function App() {
     : String(gameData.level + 1);
 
   const isCampaignComplete = gameData.level === LEVELS.length - 1;
+
+  if (!appReady) {
+    return <Preloader />;
+  }
 
   return (
     <div
@@ -441,8 +483,8 @@ export default function App() {
           {gameState === 'paused' && (
             <PauseScreen
               lang={lang}
-              onResume={() => setGameState('playing')}
-              onMenu={() => setGameState('menu')}
+              onResume={handleResume}
+              onMenu={handleMenu}
               onRestart={() => startGame(gameData.level)}
             />
           )}
@@ -453,7 +495,7 @@ export default function App() {
               highScore={gameData.highScore}
               level={gameData.level}
               onRestart={() => startGame(gameData.level)}
-              onMenu={() => setGameState('menu')}
+              onMenu={handleMenu}
               onWatchAd={handleWatchAd}
               adAvailable={adAvailable}
             />
@@ -465,7 +507,7 @@ export default function App() {
               level={gameData.level}
               stars={gameData.stars}
               onNext={handleNextLevel}
-              onMenu={() => setGameState('menu')}
+              onMenu={handleMenu}
               onEndless={() => startGame(ENDLESS_LEVEL_IDX)}
               isLastLevel={gameData.level >= LEVELS.length - 1 && gameData.level !== DAILY_LEVEL_IDX}
               isCampaignComplete={isCampaignComplete}

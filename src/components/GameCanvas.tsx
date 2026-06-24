@@ -517,7 +517,10 @@ export default function GameCanvas({
         sound.playPop(b.color);
 
         if (b.special) {
-          sound.playSpecial(b.special);
+          if (b.special === 'bomb') sound.playBombSpecial();
+          else if (b.special === 'rainbow') sound.playRainbowSpecial();
+          else if (b.special === 'lightning') sound.playLightningSpecial();
+          else if (b.special === 'freeze') sound.playFreezeSpecial();
           const effect = applySpecialEffect(b, s.bubbles, shooterColor, w);
           if (effect.frozenShots) s.frozenShots += effect.frozenShots;
           effect.removed.forEach((eb) => {
@@ -562,8 +565,8 @@ export default function GameCanvas({
           p.x += p.vx;
           p.y += p.vy;
 
-          if (p.x - BUBBLE_RADIUS < 0) { p.x = BUBBLE_RADIUS; p.vx = -p.vx; }
-          else if (p.x + BUBBLE_RADIUS > w) { p.x = w - BUBBLE_RADIUS; p.vx = -p.vx; }
+          if (p.x - BUBBLE_RADIUS < 0) { p.x = BUBBLE_RADIUS; p.vx = -p.vx; sound.playBounce(); }
+          else if (p.x + BUBBLE_RADIUS > w) { p.x = w - BUBBLE_RADIUS; p.vx = -p.vx; sound.playBounce(); }
 
           if (p.y - BUBBLE_RADIUS < TOP_OFFSET) {
             p.y = TOP_OFFSET + BUBBLE_RADIUS;

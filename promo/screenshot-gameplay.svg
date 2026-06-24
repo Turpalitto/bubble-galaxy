@@ -12,10 +12,10 @@
   <rect width="1280" height="720" fill="url(#bg)"/>
   <!-- HUD mock -->
   <rect x="40" y="30" width="200" height="60" rx="12" fill="#ffffff10" stroke="#a855f7" stroke-width="1"/>
-  <text x="60" y="55" font-family="Arial" font-size="14" fill="#a78bfa">'</text>
+  <text x="60" y="55" font-family="Arial" font-size="14" fill="#a78bfa">ОЧКИ</text>
   <text x="60" y="80" font-family="Arial Black" font-size="24" fill="#fff">12 450</text>
   <rect x="540" y="30" width="200" height="60" rx="12" fill="#ffffff10" stroke="#a855f7" stroke-width="1"/>
-  <text x="640" y="70" text-anchor="middle" font-family="Arial Black" font-size="28" fill="#fff">#@>25=L 3</text>
+  <text x="640" y="70" text-anchor="middle" font-family="Arial Black" font-size="28" fill="#fff">Уровень 3</text>
   <!-- grid -->
   <g transform="translate(340, 120)">
     <rect width="600" height="480" rx="20" fill="#0d0221" stroke="#7c3aed" stroke-width="2"/>
@@ -38,5 +38,5 @@
     <circle cx="300" cy="420" r="26" fill="url(#b)"/>
     <polygon points="300,175 290,195 310,195" fill="#FF3B5C"/>
   </g>
-  <text x="640" y="680" text-anchor="middle" font-family="Arial" font-size="22" fill="#7c3aed">59<?;59  AB@5;O9, A>18@09 :><1>, 8A?>;L7C9 A?5F?C7K@8</text>
+  <text x="640" y="680" text-anchor="middle" font-family="Arial" font-size="22" fill="#7c3aed">Геймплей - стреляй, собирай комбо, используй спецпузыри</text>
 </svg>

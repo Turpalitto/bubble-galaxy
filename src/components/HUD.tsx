@@ -100,7 +100,7 @@ export default function HUD({
             </button>
             {onSwap && (
               <button
-                onClick={onSwap}
+                onClick={() => { sound.playUiClick(); onSwap(); }}
                 className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white transition-all active:scale-90 shadow text-sm"
                 aria-label={t('swapBubbles', lang)}
               >
@@ -108,7 +108,7 @@ export default function HUD({
               </button>
             )}
             <button
-              onClick={onPause}
+              onClick={() => { sound.playUiClick(); onPause(); }}
               className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white transition-all active:scale-90 shadow"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">

@@ -45,6 +45,8 @@ export interface YandexSDK {
     setScore?: (name: string, score: number) => Promise<void>;
     setLeaderboardScore?: (name: string, score: number) => Promise<void>;
   };
+  on?: (event: string, callback: () => void) => void;
+  off?: (event: string, callback: () => void) => void;
 }
 
 declare global {
@@ -56,6 +58,10 @@ declare global {
 }
 
 let sdkInstance: YandexSDK | null = null;
+
+// Хранение callback'ов для событий SDK
+let sdkPauseHandler: (() => void) | null = null;
+let sdkResumeHandler: (() => void) | null = null;
 
 export async function initYandexSdk(): Promise<YandexSDK | null> {
   if (sdkInstance) return sdkInstance;
@@ -143,6 +149,39 @@ export async function canUseLeaderboards(): Promise<boolean> {
     }
   }
   return !!sdkInstance.leaderboards;
+}
+
+/**
+ * Подписка на события SDK: game_api_pause / game_api_resume
+ * Согласно пункту 1.19.4 требований Яндекс Игр
+ */
+export function subscribeToSdkEvents(handlers: {
+  onPause: () => void;
+  onResume: () => void;
+}): void {
+  if (!sdkInstance?.on) return;
+
+  sdkPauseHandler = handlers.onPause;
+  sdkResumeHandler = handlers.onResume;
+
+  try {
+    sdkInstance.on('game_api_pause', sdkPauseHandler);
+    sdkInstance.on('game_api_resume', sdkResumeHandler);
+  } catch (e) {
+    console.warn('[YandexSDK] Failed to subscribe to events:', e);
+  }
+}
+
+export function unsubscribeFromSdkEvents(): void {
+  if (!sdkInstance?.off || !sdkPauseHandler || !sdkResumeHandler) return;
+  try {
+    sdkInstance.off('game_api_pause', sdkPauseHandler);
+    sdkInstance.off('game_api_resume', sdkResumeHandler);
+  } catch {
+    /* ignore */
+  }
+  sdkPauseHandler = null;
+  sdkResumeHandler = null;
 }
 
 export interface AdCallbacks {

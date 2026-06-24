@@ -6,6 +6,7 @@ import { t, localeOf } from '../utils/i18n';
 import LevelSelectScreen from './LevelSelectScreen';
 import LeaderboardPanel, { type LeaderboardTab } from './LeaderboardPanel';
 import type { LeaderboardData } from '../utils/leaderboard';
+import { sound } from '../utils/sound';
 
 type MenuView = 'main' | 'levels' | 'leaderboard';
 
@@ -97,8 +98,14 @@ export default function MenuScreen({
   }, []);
 
   const handleOpenLeaderboard = () => {
+    sound.playUiClick();
     setView('leaderboard');
     onOpenLeaderboard();
+  };
+
+  const uiClick = (fn: () => void) => () => {
+    sound.playUiClick();
+    fn();
   };
 
   const totalStars = progress.levelStars.reduce((a, b) => a + b, 0);
@@ -114,8 +121,8 @@ export default function MenuScreen({
         <LevelSelectScreen
           lang={lang}
           progress={progress}
-          onSelectLevel={(lvl) => { onSelectLevel(lvl); setView('main'); }}
-          onBack={() => setView('main')}
+          onSelectLevel={(lvl) => { sound.playUiClick(); onSelectLevel(lvl); setView('main'); }}
+          onBack={() => { sound.playUiClick(); setView('main'); }}
         />
       )}
 
@@ -182,7 +189,8 @@ export default function MenuScreen({
         </div>
 
         <button
-          onClick={onTapToPlay}
+          onClick={uiClick(onTapToPlay)}
+          onMouseEnter={() => sound.playUiHover()}
           className="relative w-full group"
         >
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 blur-xl opacity-60 group-hover:opacity-90 transition-opacity animate-pulse" />
@@ -192,7 +200,8 @@ export default function MenuScreen({
         </button>
 
         <button
-          onClick={() => setView('levels')}
+          onClick={() => { sound.playUiClick(); setView('levels'); }}
+          onMouseEnter={() => sound.playUiHover()}
           className="w-full bg-white/5 hover:bg-white/10 border border-white/15 text-purple-200 font-bold py-2.5 rounded-2xl transition-all active:scale-95 text-sm"
         >
           {progress.campaignComplete ? `🗺️ ${t('levels', lang)}` : `🗺️ ${t('levelMap', lang)}`}
@@ -200,13 +209,15 @@ export default function MenuScreen({
 
         <div className="grid grid-cols-2 gap-2 w-full">
           <button
-            onClick={onEndless}
+            onClick={uiClick(onEndless)}
+            onMouseEnter={() => sound.playUiHover()}
             className="bg-gradient-to-r from-indigo-700/80 to-purple-700/80 hover:from-indigo-600 hover:to-purple-600 border border-indigo-400/30 text-white font-bold py-2.5 rounded-2xl transition-all active:scale-95 text-sm"
           >
             🌌 {t('endless', lang)}
           </button>
           <button
-            onClick={onDaily}
+            onClick={uiClick(onDaily)}
+            onMouseEnter={() => sound.playUiHover()}
             disabled={!dailyPending}
             className={`font-bold py-2.5 rounded-2xl transition-all active:scale-95 text-sm border ${
               dailyPending
@@ -220,6 +231,7 @@ export default function MenuScreen({
 
         <button
           onClick={handleOpenLeaderboard}
+          onMouseEnter={() => sound.playUiHover()}
           className="w-full bg-white/5 hover:bg-white/10 border border-white/15 text-purple-200 font-bold py-2.5 rounded-2xl transition-all active:scale-95 text-sm"
         >
           🏆 {t('leaderboard', lang)}

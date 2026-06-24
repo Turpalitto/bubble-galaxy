@@ -1,5 +1,6 @@
 import type { GameLang } from '../utils/i18n';
 import { t, localeOf } from '../utils/i18n';
+import { sound } from '../utils/sound';
 
 interface LevelCompleteProps {
   lang: GameLang;
@@ -76,13 +77,13 @@ export default function LevelCompleteScreen({
         {isCampaignComplete && onEndless ? (
           <div className="flex flex-col gap-3">
             <button
-              onClick={onEndless}
+              onClick={() => { sound.playUiClick(); onEndless(); }}
               className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-black py-3.5 rounded-2xl transition-all active:scale-95 shadow-lg text-lg"
             >
               🌌 {t('endlessMode', lang)}
             </button>
             <button
-              onClick={onMenu}
+              onClick={() => { sound.playUiClick(); onMenu(); }}
               className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-2xl transition-all active:scale-95 border border-white/10"
             >
               🏠 {t('menu', lang)}
@@ -91,13 +92,13 @@ export default function LevelCompleteScreen({
         ) : (
           <div className="flex gap-3">
             <button
-              onClick={onMenu}
+              onClick={() => { sound.playUiClick(); onMenu(); }}
               className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-2xl transition-all active:scale-95 border border-white/10"
             >
               🏠 {t('menu', lang)}
             </button>
             <button
-              onClick={onNext}
+              onClick={() => { sound.playUiClick(); onNext(); }}
               className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-black py-3 rounded-2xl transition-all active:scale-95 shadow-lg"
             >
               {isLastLevel ? `🌌 ${t('endless', lang)}` : `▶ ${t('next', lang)}`}

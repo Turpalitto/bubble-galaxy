@@ -1,5 +1,6 @@
 import type { GameLang } from '../utils/i18n';
 import { t, localeOf } from '../utils/i18n';
+import { sound } from '../utils/sound';
 
 interface GameOverScreenProps {
   lang: GameLang;
@@ -56,7 +57,7 @@ export default function GameOverScreen({
 
         {adAvailable && (
           <button
-            onClick={onWatchAd}
+            onClick={() => { sound.playUiClick(); onWatchAd(); }}
             className="w-full mb-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black font-black text-sm py-3 rounded-2xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
           >
             <span>📺</span>
@@ -66,13 +67,13 @@ export default function GameOverScreen({
 
         <div className="flex gap-3">
           <button
-            onClick={onMenu}
+            onClick={() => { sound.playUiClick(); onMenu(); }}
             className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-2xl transition-all active:scale-95 border border-white/10"
           >
             🏠 {t('menu', lang)}
           </button>
           <button
-            onClick={onRestart}
+            onClick={() => { sound.playUiClick(); onRestart(); }}
             className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-black py-3 rounded-2xl transition-all active:scale-95 shadow-lg"
           >
             🔄 {t('again', lang)}

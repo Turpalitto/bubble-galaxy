@@ -17,16 +17,13 @@
   </defs>
   <rect width="960" height="640" fill="url(#sky)"/>
   <rect width="960" height="640" fill="url(#nebula)"/>
-  <!-- stars -->
   <g fill="#fff" opacity="0.6">
     <circle cx="120" cy="80" r="2"/><circle cx="800" cy="60" r="1.5"/><circle cx="650" cy="120" r="2"/>
     <circle cx="300" cy="50" r="1"/><circle cx="900" cy="180" r="1.5"/><circle cx="50" cy="200" r="2"/>
     <circle cx="500" cy="90" r="1"/><circle cx="700" cy="300" r="1.5"/><circle cx="200" cy="350" r="1"/>
   </g>
-  <!-- game grid mockup -->
   <g transform="translate(280, 80)">
     <rect x="0" y="0" width="400" height="380" rx="24" fill="#0d0221" stroke="#a855f7" stroke-width="2" opacity="0.9"/>
-    <!-- rows of bubbles -->
     <g>
       <circle cx="60" cy="50" r="20" fill="#FF3B5C"/><circle cx="110" cy="50" r="20" fill="#FFCC00"/>
       <circle cx="160" cy="50" r="20" fill="#34C759"/><circle cx="210" cy="50" r="20" fill="#007AFF"/>
@@ -38,12 +35,10 @@
       <circle cx="160" cy="120" r="20" fill="#FF9500"/><circle cx="210" cy="120" r="20" fill="#FF3B5C"/>
       <circle cx="260" cy="120" r="20" fill="#FFCC00"/><circle cx="310" cy="120" r="20" fill="#007AFF"/>
     </g>
-    <!-- shooter -->
     <circle cx="200" cy="330" r="24" fill="url(#bubble)"/>
     <line x1="200" y1="310" x2="200" y2="200" stroke="#fff" stroke-width="3" opacity="0.4" stroke-dasharray="8 6"/>
   </g>
-  <!-- title block -->
   <text x="480" y="530" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="64" font-weight="900" fill="#e879f9">BUBBLE GALAXY</text>
-  <text x="480" y="580" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#c4b5fd">C7K@=K9 HCB5@ � ><1> � 8 C@>2=59</text>
-  <text x="480" y="615" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#7c3aed">5A?;0B=> =0 /=45:A 3@0E</text>
+  <text x="480" y="580" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#c4b5fd">Пузырный шутер - Комбо - 14 уровней</text>
+  <text x="480" y="615" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#7c3aed">Бесплатно на Яндекс Играх</text>
 </svg>
