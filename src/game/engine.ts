@@ -228,17 +228,44 @@ export function generateGrid(
   return bubbles;
 }
 
+/** Пересчёт координат пузырей при изменении размера canvas (без сброса поля) */
+export function repositionBubbles(
+  bubbles: Bubble[],
+  canvasWidth: number,
+  topOffset: number
+): void {
+  for (const b of bubbles) {
+    if (b.popping || b.falling) continue;
+    b.x = getBubbleX(b.col, b.row, canvasWidth);
+    b.y = getBubbleY(b.row, topOffset);
+  }
+}
+
 export function randomColor(levelIdx: number): string {
-  if (levelIdx === 0) return TUTORIAL_SHOOT_COLOR;
-  if (levelIdx === ENDLESS_LEVEL_IDX) {
-    return BUBBLE_COLORS[Math.floor(Math.random() * BUBBLE_COLORS.length)];
-  }
-  if (levelIdx === DAILY_LEVEL_IDX) {
-    return BUBBLE_COLORS[Math.floor(Math.random() * 6)];
-  }
+  return pickShooterColor(levelIdx, []);
+}
+
+/** Цвет следующего пузыря — из палитры уровня, предпочтительно с поля */
+export function pickShooterColor(
+  levelIdx: number,
+  bubbles: Bubble[],
+  preferExclude?: string
+): string {
+  const pool = getLevelColorPool(levelIdx);
+  const active = bubbles.filter((b) => !b.popping && !b.falling);
+  const onGrid = [...new Set(active.map((b) => b.color))];
+  const source = onGrid.length > 0 ? onGrid : [...pool];
+  let choices = preferExclude ? source.filter((c) => c !== preferExclude) : [...source];
+  if (choices.length === 0) choices = [...source];
+  if (choices.length === 0) choices = [...pool];
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
+function getLevelColorPool(levelIdx: number): readonly string[] {
+  if (levelIdx === ENDLESS_LEVEL_IDX) return BUBBLE_COLORS;
+  if (levelIdx === DAILY_LEVEL_IDX) return BUBBLE_COLORS.slice(0, 6);
   const lvl = LEVELS[Math.min(levelIdx, LEVELS.length - 1)];
-  const usedColors = BUBBLE_COLORS.slice(0, lvl.colors);
-  return usedColors[Math.floor(Math.random() * usedColors.length)];
+  return BUBBLE_COLORS.slice(0, lvl.colors);
 }
 
 export function getMaxShots(levelIdx: number): number {

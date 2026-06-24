@@ -8,7 +8,7 @@
  * - Плавные crossfade между состояниями
  */
 
-type WaveType = 'sine' | 'triangle' | 'sawtooth' | 'square' | 'noise';
+type WaveType = OscillatorType;
 
 interface NoteEvent {
   freq: number;
@@ -30,8 +30,6 @@ class SoundEngine {
   private ambientStarted = false;
   private ambientNodes: OscillatorNode[] = [];
   private ambientNoise: AudioBufferSourceNode | null = null;
-  private ambientLfo: OscillatorNode | null = null;
-  private ambientFilter: BiquadFilterNode | null = null;
 
   // ─── AudioContext management ─────────────────────────────────
 
@@ -499,7 +497,6 @@ class SoundEngine {
 
   playAchievement() {
     if (this.muted || this.pausedForAd) return;
-    const ctx = this.getCtx();
 
     // Фанфары — восходящая мажорная арпеджио
     const fanfare: NoteEvent[] = [
@@ -626,7 +623,6 @@ class SoundEngine {
     noiseEnv.connect(this.musicGain!);
     noiseSource.start();
     this.ambientNoise = noiseSource;
-    this.ambientFilter = noiseFilter;
   }
 
   stopAmbient() {
@@ -636,7 +632,6 @@ class SoundEngine {
     this.ambientNodes = [];
     this.ambientNoise?.stop();
     this.ambientNoise = null;
-    this.ambientFilter = null;
     this.ambientStarted = false;
   }
 

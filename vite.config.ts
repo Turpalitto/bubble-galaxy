@@ -20,6 +20,15 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    proxy: {
+      "/sdk.js": {
+        target: "https://yandex.ru",
+        changeOrigin: true,
+        rewrite: () => "/games/sdk/v2",
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

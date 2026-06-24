@@ -11,7 +11,8 @@ import {
 } from '../game/constants';
 import {
   generateGrid,
-  randomColor,
+  pickShooterColor,
+  repositionBubbles,
   checkCollision,
   snapToGrid,
   findMatches,
@@ -382,7 +383,7 @@ export default function GameCanvas({
     s.bubbles = generateGrid(s.levelIdx, canvasW, TOP_OFFSET);
     if (s.levelIdx === 0) {
       s.nextColor = TUTORIAL_SHOOT_COLOR;
-      s.reserveColor = '#007AFF';
+      s.reserveColor = pickShooterColor(s.levelIdx, s.bubbles, TUTORIAL_SHOOT_COLOR);
       const target = s.bubbles.find((b) => b.row === 3 && b.col === 4);
       if (target) {
         const sy = gameSizeRef.current.h - SHOOTER_FROM_BOTTOM;
@@ -392,8 +393,8 @@ export default function GameCanvas({
         s.angle = angle;
       }
     } else {
-      s.nextColor = randomColor(s.levelIdx);
-      s.reserveColor = randomColor(s.levelIdx);
+      s.nextColor = pickShooterColor(s.levelIdx, s.bubbles);
+      s.reserveColor = pickShooterColor(s.levelIdx, s.bubbles, s.nextColor);
     }
     onReserveColorChange?.(s.reserveColor);
   }, [gameData.level, onReserveColorChange]);
@@ -445,7 +446,7 @@ export default function GameCanvas({
     s.shotsFired++;
     s.canShoot = false;
     s.nextColor = s.reserveColor;
-    s.reserveColor = randomColor(s.levelIdx);
+    s.reserveColor = pickShooterColor(s.levelIdx, s.bubbles, s.nextColor);
     onReserveColorChange?.(s.reserveColor);
     sound.playShoot();
   }, [getShooterPos, onReserveColorChange]);
@@ -497,7 +498,11 @@ export default function GameCanvas({
       canvas.style.height = newH + 'px';
       gameSizeRef.current = { w: newW, h: newH };
       const s = stateRef.current;
-      s.bubbles = generateGrid(s.levelIdx, newW, TOP_OFFSET);
+      if (s.bubbles.length > 0) {
+        repositionBubbles(s.bubbles, newW, TOP_OFFSET);
+      } else {
+        s.bubbles = generateGrid(s.levelIdx, newW, TOP_OFFSET);
+      }
     };
 
     resize();
@@ -892,6 +897,21 @@ export default function GameCanvas({
       ctx.restore();
 
       drawCannonNozzle(ctx, sx2, sy2, s.angle, s.nextColor, glowPulse);
+
+      if (s.reserveColor) {
+        const reserveX = sx2 + 56;
+        const reserveY = sy2 + 6;
+        const reserveR = BUBBLE_RADIUS * 0.72;
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(reserveX, reserveY, reserveR + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        drawBubble(ctx, reserveX, reserveY, s.reserveColor, reserveR, 1, 0.35);
+        ctx.restore();
+      }
 
       if (showTutorialAim && aimPts.length > 0) {
         drawTutorialAimGuide(ctx, sx2, sy2, aimPts, frameNum);
