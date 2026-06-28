@@ -1,12 +1,5 @@
 import type { PlayerProgress } from '../game/types';
 
-export interface YaPlayer {
-  setData(data: Record<string, unknown>, flush?: boolean): Promise<void>;
-  getData(keys?: string[]): Promise<Record<string, unknown>>;
-  isAuthorized?: () => boolean;
-  getName?: () => string;
-}
-
 export interface YandexSDK {
   adv: {
     showRewardedVideo: (opts: {
@@ -30,36 +23,49 @@ export interface YandexSDK {
     GameplayAPI?: { start(): void; stop(): void };
   };
   environment?: { i18n?: { lang: string } };
-  auth?: { openAuthDialog: () => Promise<void> };
+  auth?: { openAuthDialog: () => Promise<unknown> };
   getPlayer: (opts?: { signed?: boolean }) => Promise<YaPlayer>;
   isAvailableMethod?: (method: string) => Promise<boolean>;
   leaderboards?: {
     getEntries?: (
       name: string,
       opts: { quantityTop: number; includeUser: boolean; quantityAround?: number }
-    ) => Promise<unknown>;
+    ) => Promise<LeaderboardData>;
     getLeaderboardEntries?: (
       name: string,
       opts: { quantityTop: number; includeUser: boolean; quantityAround?: number }
-    ) => Promise<unknown>;
-    setScore?: (name: string, score: number) => Promise<void>;
-    setLeaderboardScore?: (name: string, score: number) => Promise<void>;
+    ) => Promise<LeaderboardData>;
+    setScore?: (name: string, score: number) => Promise<unknown>;
+    setLeaderboardScore?: (name: string, score: number) => Promise<unknown>;
   };
   on?: (event: string, callback: () => void) => void;
   off?: (event: string, callback: () => void) => void;
 }
 
+export interface YaPlayer {
+  setData(data: Record<string, unknown>, flush?: boolean): Promise<unknown>;
+  getData(keys?: string[]): Promise<Record<string, unknown>>;
+  isAuthorized?: () => boolean;
+  getName?: () => string;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  score: number;
+  name: string;
+}
+
+export interface LeaderboardData {
+  entries?: LeaderboardEntry[];
+}
+
 declare global {
   interface Window {
-    YaGames?: {
-      init: () => Promise<YandexSDK>;
-    };
+    YaGames?: { init: () => Promise<YandexSDK> };
   }
 }
 
 let sdkInstance: YandexSDK | null = null;
-
-// Хранение callback'ов для событий SDK
 let sdkPauseHandler: (() => void) | null = null;
 let sdkResumeHandler: (() => void) | null = null;
 
@@ -79,15 +85,15 @@ export function getYandexSdk(): YandexSDK | null {
 }
 
 export function signalLoadingReady(): void {
-  sdkInstance?.features.LoadingAPI?.ready();
+  sdkInstance?.features?.LoadingAPI?.ready();
 }
 
 export function gameplayStart(): void {
-  sdkInstance?.features.GameplayAPI?.start();
+  sdkInstance?.features?.GameplayAPI?.start();
 }
 
 export function gameplayStop(): void {
-  sdkInstance?.features.GameplayAPI?.stop();
+  sdkInstance?.features?.GameplayAPI?.stop();
 }
 
 export function getSdkLang(): string | undefined {
@@ -112,9 +118,7 @@ export async function savePlayerData(
   try {
     const player = await sdkInstance.getPlayer();
     await player.setData(data as Record<string, unknown>, flush);
-  } catch {
-    /* guest */
-  }
+  } catch { /* guest */ }
 }
 
 export async function isPlayerAuthorized(): Promise<boolean> {
@@ -151,19 +155,44 @@ export async function canUseLeaderboards(): Promise<boolean> {
   return !!sdkInstance.leaderboards;
 }
 
-/**
- * Подписка на события SDK: game_api_pause / game_api_resume
- * Согласно пункту 1.19.4 требований Яндекс Игр
- */
+export async function submitLeaderboardScore(name: string, score: number): Promise<void> {
+  if (!sdkInstance?.leaderboards) return;
+  try {
+    if (sdkInstance.leaderboards.setLeaderboardScore) {
+      await sdkInstance.leaderboards.setLeaderboardScore(name, score);
+    } else if (sdkInstance.leaderboards.setScore) {
+      await sdkInstance.leaderboards.setScore(name, score);
+    }
+  } catch { /* ignore */ }
+}
+
+export async function getLeaderboardEntries(
+  name: string,
+  quantityTop = 10,
+  includeUser = true
+): Promise<LeaderboardEntry[]> {
+  if (!sdkInstance?.leaderboards) return [];
+  try {
+    const method = sdkInstance.leaderboards.getLeaderboardEntries || sdkInstance.leaderboards.getEntries;
+    if (!method) return [];
+    const data = await method(name, { quantityTop, includeUser, quantityAround: 3 });
+    return (data.entries ?? []).map((e: LeaderboardEntry) => ({
+      rank: e.rank,
+      score: e.score,
+      name: e.name || 'Player',
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export function subscribeToSdkEvents(handlers: {
   onPause: () => void;
   onResume: () => void;
 }): void {
   if (!sdkInstance?.on) return;
-
   sdkPauseHandler = handlers.onPause;
   sdkResumeHandler = handlers.onResume;
-
   try {
     sdkInstance.on('game_api_pause', sdkPauseHandler);
     sdkInstance.on('game_api_resume', sdkResumeHandler);
@@ -177,9 +206,7 @@ export function unsubscribeFromSdkEvents(): void {
   try {
     sdkInstance.off('game_api_pause', sdkPauseHandler);
     sdkInstance.off('game_api_resume', sdkResumeHandler);
-  } catch {
-    /* ignore */
-  }
+  } catch { /* ignore */ }
   sdkPauseHandler = null;
   sdkResumeHandler = null;
 }
@@ -237,13 +264,12 @@ export function showRewardedAd(
 
 export function setupPlatformGuards(): void {
   const block = (e: Event) => e.preventDefault();
-
   document.addEventListener('contextmenu', block);
   document.addEventListener('selectstart', block);
   document.addEventListener('dragstart', block);
-
+  // п.1.10.2 — блокируем ВСЕ браузерные жесты (scroll, pull-to-refresh, pinch-zoom)
   const preventScroll = (e: TouchEvent) => {
-    if (e.touches.length > 1) e.preventDefault();
+    e.preventDefault();
   };
   document.addEventListener('touchmove', preventScroll, { passive: false });
 }

@@ -23,13 +23,7 @@ export interface Projectile {
   active: boolean;
 }
 
-export type GameState =
-  | 'menu'
-  | 'playing'
-  | 'paused'
-  | 'levelComplete'
-  | 'gameOver'
-  | 'adReward';
+export type GameScreen = 'menu' | 'playing' | 'paused' | 'levelComplete' | 'gameOver';
 
 export interface GameData {
   score: number;
@@ -50,12 +44,6 @@ export interface PlayerProgress {
   endlessHighScore: number;
 }
 
-export interface LevelSessionStats {
-  misses: number;
-  maxCombo: number;
-  consecutiveHits: number;
-}
-
 export interface ParticleEffect {
   x: number;
   y: number;
@@ -65,4 +53,25 @@ export interface ParticleEffect {
   life: number;
   maxLife: number;
   size: number;
+}
+
+export interface ScorePopup {
+  x: number;
+  y: number;
+  value: number;
+  life: number;
+  maxLife: number;
+  combo: number;
+}
+
+export interface LevelSessionStats {
+  misses: number;
+  maxCombo: number;
+  consecutiveHits: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  score: number;
+  name: string;
 }
