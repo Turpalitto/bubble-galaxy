@@ -17,8 +17,7 @@ import {
 import type { Bubble, Projectile, ParticleEffect, ScorePopup, PlayerProgress } from './game/types';
 import {
   initYandexSdk, signalLoadingReady, gameplayStart, gameplayStop, getSdkLang,
-  loadPlayerData, savePlayerData, isPlayerAuthorized, requestAuth,
-  submitLeaderboardScore, getLeaderboardEntries, subscribeToSdkEvents, unsubscribeFromSdkEvents,
+  loadPlayerData, savePlayerData, subscribeToSdkEvents, unsubscribeFromSdkEvents,
   showFullscreenAd, showRewardedAd, setupPlatformGuards,
   showStickyBanner, hideStickyBanner,
 } from './utils/yandexSdk';
@@ -40,9 +39,7 @@ const T: Record<string, Record<LangKey, string>> = {
   gameOver: { ru: 'Игра окончена', en: 'Game Over', tr: 'Oyun Bitti' },
   levelComplete: { ru: 'Уровень пройден!', en: 'Level Complete!', tr: 'Seviye Tamamlandı!' },
   nextLevel: { ru: 'Далее', en: 'Next', tr: 'İleri' },
-  watchAd: { ru: '🎬 Продолжить за рекламу', en: '🎬 Continue for Ad', tr: '🎬 Reklamla Devam' },
-  leaderboard: { ru: 'Рейтинг', en: 'Leaderboard', tr: 'Sıralama' },
-  authForLB: { ru: 'Войти для рейтинга', en: 'Sign in for Leaderboard', tr: 'Sıralama için giriş' },
+  watchAdForShots: { ru: '🎬 +5 за рекламу', en: '🎬 +5 for ad', tr: '🎬 Reklam için +5' },
   highScore: { ru: 'Рекорд', en: 'High Score', tr: 'En Yüksek Skor' },
   campaign: { ru: 'Кампания', en: 'Campaign', tr: 'Kampanya' },
   howToPlay: { ru: 'Стреляй пузырями, собирай 3+ в ряд!', en: 'Shoot bubbles, match 3+!', tr: 'Baloncuk fırlat, 3+ eşleştir!' },
@@ -77,8 +74,6 @@ export default function App() {
   const [progress, setProgress] = useState<PlayerProgress>(DEFAULT_PROGRESS);
   const [lang, setLang] = useState<LangKey>('en');
   const [isMuted, setIsMuted] = useState(false);
-  const [lbData, setLbData] = useState<{ rank: number; score: number; name: string }[]>([]);
-  const [playerAuth, setPlayerAuth] = useState(false);
   const [gameTick, setGameTick] = useState(0);
 
   // ─── Refs — всё что нужно игровому циклу ────────────────────────────────
@@ -143,7 +138,6 @@ export default function App() {
       showStickyBanner();
       setLang(detectLang());
       loadProgressFn();
-      isPlayerAuthorized().then(setPlayerAuth);
     }).catch(() => {
       setLang(detectLang());
       loadProgressFn();
@@ -299,52 +293,6 @@ export default function App() {
     showStickyBanner();
   }, []);
 
-  // ─── Watch ad ──────────────────────────────────────────────────────────
-  const handleWatchAd = useCallback(() => {
-    showRewardedAd(
-      () => {
-        const g = gRef.current;
-        if (!g) return;
-        // Даём передышку — сдвигаем пузыри вверх
-        const pushUp = BUBBLE_RADIUS * 3;
-        g.bubbles.forEach(b => {
-          if (!b.popping && !b.falling) b.y -= pushUp;
-        });
-        // Убираем самые нижние пузыри если всё равно слишком низко
-        const { h } = sizeRef.current;
-        const dangerY = getDangerY(h);
-        g.bubbles = g.bubbles.filter(b => {
-          if (b.popping || b.falling) return true;
-          return b.y < dangerY;
-        });
-        g.shotsLeft = getMaxShots(g.levelIdx);
-        g.gameOverFired = false;
-        g.canShoot = true;
-        g.nextColor = pickShooterColor(g.levelIdx, g.bubbles);
-        g.reserveColor = pickShooterColor(g.levelIdx, g.bubbles, g.nextColor);
-        pausedRef.current = false;
-        overlayRef.current = 'none';
-        setOverlay('none');
-        setHud(h2 => ({ ...h2, shotsLeft: g.shotsLeft }));
-        gameplayStart();
-        if (!sound.isMuted()) sound.resume();
-      },
-      { onOpen: () => sound.pause(), onClose: () => { if (!sound.isMuted()) sound.resume(); } }
-    );
-  }, []);
-
-  // ─── Leaderboard ──────────────────────────────────────────────────────
-  const loadLeaderboard = useCallback(async () => {
-    const entries = await getLeaderboardEntries('bubbleGalaxy', 10, true);
-    setLbData(entries);
-  }, []);
-
-  const handleAuth = useCallback(async () => {
-    const ok = await requestAuth();
-    setPlayerAuth(ok);
-    if (ok) loadLeaderboard();
-  }, [loadLeaderboard]);
-
   // ═══════════════════════════════════════════════════════════════════════
   // ─── GAME LOOP — запускается один раз при screen='playing' ────────────
   // ═══════════════════════════════════════════════════════════════════════
@@ -407,10 +355,6 @@ export default function App() {
       if (g.score > p.highScore) p.highScore = g.score;
       saveProgressFn(p);
 
-      const lbName = g.levelIdx === ENDLESS_LEVEL_IDX ? 'bubbleGalaxyEndless'
-        : g.levelIdx === DAILY_LEVEL_IDX ? 'bubbleGalaxyDaily' : 'bubbleGalaxy';
-      submitLeaderboardScore(lbName, g.score);
-
       showFullscreenAd({
         onOpen: () => sound.pause(),
         onClose: () => { if (!sound.isMuted()) sound.resume(); },
@@ -436,10 +380,9 @@ export default function App() {
       if (g.levelIdx === DAILY_LEVEL_IDX) markDailyCompleted();
       if (g.score > p.highScore) p.highScore = g.score;
       saveProgressFn(p);
-      submitLeaderboardScore('bubbleGalaxy', g.score);
 
-      // Interstitial ad после каждого уровня кампании (кроме endless/daily)
-      if (lvl !== ENDLESS_LEVEL_IDX && lvl !== DAILY_LEVEL_IDX) {
+      // Interstitial ad каждые 2 уровня кампании (кроме endless/daily)
+      if (lvl !== ENDLESS_LEVEL_IDX && lvl !== DAILY_LEVEL_IDX && (lvl + 1) % 2 === 0) {
         showFullscreenAd({
           onOpen: () => sound.pause(),
           onClose: () => { if (!sound.isMuted()) sound.resume(); },
@@ -923,26 +866,6 @@ export default function App() {
         <button onClick={toggleSound} className="relative z-10 text-purple-400/60 hover:text-purple-300 text-sm transition-colors">
           {isMuted ? '🔇' : '🔊'} {t('sound', lang)}
         </button>
-
-        <div className="relative z-10 w-full max-w-xs mt-4">
-          <button onClick={loadLeaderboard} className="w-full py-2 rounded-lg bg-white/5 border border-purple-500/20 text-purple-300 text-sm hover:bg-purple-500/10 transition-all">
-            🏅 {t('leaderboard', lang)}
-          </button>
-          {!playerAuth && (
-            <button onClick={handleAuth} className="w-full py-1.5 mt-1 rounded-lg text-purple-400/50 text-xs hover:text-purple-300 transition-colors">
-              {t('authForLB', lang)}
-            </button>
-          )}
-          {lbData.length > 0 && (
-            <div className="mt-2 rounded-lg bg-black/30 p-2 text-xs">
-              {lbData.slice(0, 5).map((e, i) => (
-                <div key={i} className="flex justify-between text-purple-200/70 py-0.5">
-                  <span>{e.rank}. {e.name}</span><span className="text-yellow-400">{e.score.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     );
   }
@@ -960,6 +883,26 @@ export default function App() {
           <span className="text-purple-300">{t('level', lang)} {hud.levelLabel}</span>
           <span className="text-yellow-400 font-bold">⭐ {hud.score.toLocaleString()}</span>
           <span className="text-white/60">{t('shots', lang)}: {hud.shotsLeft}</span>
+          {hud.shotsLeft <= 3 && overlay === 'none' && screen === 'playing' && (
+            <button
+              onClick={() => showRewardedAd(
+                () => {
+                  const g = gRef.current; if (!g) return;
+                  g.shotsLeft += 5;
+                  setHud(h => ({ ...h, shotsLeft: g.shotsLeft }));
+                },
+                {
+                  onOpen: () => { pausedRef.current = true; sound.pause(); },
+                  onClose: () => { pausedRef.current = false; if (!sound.isMuted()) sound.resume(); },
+                  onError: () => { pausedRef.current = false; if (!sound.isMuted()) sound.resume(); },
+                }
+              )}
+              className="ml-2 text-amber-400 text-xs font-semibold border border-amber-500/40 rounded-lg px-2 py-1 hover:bg-amber-500/10 transition"
+              aria-label={t('watchAdForShots', lang)}
+            >
+              {t('watchAdForShots', lang)}
+            </button>
+          )}
           {hud.combo > 1 && <span className="text-orange-400 font-bold">🔥 x{hud.combo}</span>}
         </div>
         <div className="flex items-center gap-2">
@@ -992,7 +935,6 @@ export default function App() {
             {hud.combo > 0 && <p className="text-orange-400 text-sm mb-4">🔥 Max Combo: x{hud.combo}</p>}
             <div className="space-y-3 w-52 mt-2">
               <button onClick={() => startGame(hud.levelIdx)} className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm active:scale-95">🔄 {t('restart', lang)}</button>
-              <button onClick={handleWatchAd} className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-sm active:scale-95">{t('watchAd', lang)}</button>
               <button onClick={handleMenu} className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white/60 font-semibold text-sm active:scale-95">🏠 {t('menu', lang)}</button>
             </div>
           </div>
