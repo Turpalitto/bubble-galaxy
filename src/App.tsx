@@ -20,6 +20,7 @@ import {
   loadPlayerData, savePlayerData, isPlayerAuthorized, requestAuth,
   submitLeaderboardScore, getLeaderboardEntries, subscribeToSdkEvents, unsubscribeFromSdkEvents,
   showFullscreenAd, showRewardedAd, setupPlatformGuards,
+  showStickyBanner, hideStickyBanner,
 } from './utils/yandexSdk';
 import { sound } from './utils/sound';
 
@@ -85,7 +86,9 @@ export default function App() {
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const swapRef = useRef<(() => void) | null>(null);
   const pausedRef = useRef(false);
+  const screenRef = useRef<'menu' | 'playing'>('menu');
   const overlayRef = useRef<Overlay>('none');
+  const loadingSignaledRef = useRef(false);
   const progressRef = useRef(progress);
   const sizeRef = useRef({ w: 400, h: 700 });
 
@@ -123,14 +126,21 @@ export default function App() {
   } | null>(null);
 
   // Синхронизируем refs
+  useEffect(() => { screenRef.current = screen; }, [screen]);
   useEffect(() => { overlayRef.current = overlay; }, [overlay]);
   useEffect(() => { progressRef.current = progress; }, [progress]);
+
+  useEffect(() => {
+    if (loadingSignaledRef.current) return;
+    loadingSignaledRef.current = true;
+    requestAnimationFrame(() => signalLoadingReady());
+  }, []);
 
   // ─── SDK Init ──────────────────────────────────────────────────────────
   useEffect(() => {
     setupPlatformGuards();
     initYandexSdk().then(() => {
-      signalLoadingReady();
+      showStickyBanner();
       setLang(detectLang());
       loadProgressFn();
       isPlayerAuthorized().then(setPlayerAuth);
@@ -140,8 +150,15 @@ export default function App() {
     });
 
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) sound.pause();
-      else if (!sound.isMuted()) sound.resume();
+      if (document.hidden) {
+        sound.pause();
+        gameplayStop();
+      } else {
+        if (!sound.isMuted()) sound.resume();
+        if (screenRef.current === 'playing' && overlayRef.current === 'none') {
+          gameplayStart();
+        }
+      }
     });
 
     subscribeToSdkEvents({
@@ -192,6 +209,7 @@ export default function App() {
 
   // ─── Start game ────────────────────────────────────────────────────────
   const startGame = useCallback((idx: number) => {
+    hideStickyBanner();
     // Если уже есть запущенный цикл — останавливаем
     if (gRef.current) {
       cancelAnimationFrame(gRef.current.animFrame);
@@ -278,6 +296,7 @@ export default function App() {
     setOverlay('none');
     gameplayStop();
     loadProgressFn();
+    showStickyBanner();
   }, []);
 
   // ─── Watch ad ──────────────────────────────────────────────────────────
@@ -419,11 +438,12 @@ export default function App() {
       saveProgressFn(p);
       submitLeaderboardScore('bubbleGalaxy', g.score);
 
-      // Interstitial ad каждые 3 уровня кампании (для монетизации)
-      if (lvl !== ENDLESS_LEVEL_IDX && lvl !== DAILY_LEVEL_IDX && (lvl + 1) % 3 === 0) {
+      // Interstitial ad после каждого уровня кампании (кроме endless/daily)
+      if (lvl !== ENDLESS_LEVEL_IDX && lvl !== DAILY_LEVEL_IDX) {
         showFullscreenAd({
           onOpen: () => sound.pause(),
           onClose: () => { if (!sound.isMuted()) sound.resume(); },
+          onError: () => { if (!sound.isMuted()) sound.resume(); },
         });
       }
     }

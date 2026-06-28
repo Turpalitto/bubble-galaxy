@@ -15,8 +15,12 @@ export interface YandexSDK {
         onOpen?: () => void;
         onClose?: (wasShown: boolean) => void;
         onError?: (e: Error) => void;
+        onOffline?: () => void;
       };
     }) => void;
+    showBannerAdv?: () => Promise<{ stickyAdvIsShowing?: boolean }>;
+    hideBannerAdv?: () => Promise<void>;
+    getBannerAdvStatus?: () => Promise<{ stickyAdvIsShowing?: boolean }>;
   };
   features: {
     LoadingAPI?: { ready(): void };
@@ -47,6 +51,7 @@ export interface YaPlayer {
   getData(keys?: string[]): Promise<Record<string, unknown>>;
   isAuthorized?: () => boolean;
   getName?: () => string;
+  getUniqueID?: () => string;
 }
 
 export interface LeaderboardEntry {
@@ -124,8 +129,10 @@ export async function savePlayerData(
 export async function isPlayerAuthorized(): Promise<boolean> {
   if (!sdkInstance) return false;
   try {
-    const player = await sdkInstance.getPlayer();
-    return player.isAuthorized?.() ?? false;
+    const player = await sdkInstance.getPlayer({ signed: false });
+    if (typeof player.isAuthorized === 'function') return player.isAuthorized();
+    const uid = typeof player.getUniqueID === 'function' ? player.getUniqueID() : '';
+    return Boolean(uid);
   } catch {
     return false;
   }
@@ -173,9 +180,13 @@ export async function getLeaderboardEntries(
 ): Promise<LeaderboardEntry[]> {
   if (!sdkInstance?.leaderboards) return [];
   try {
-    const method = sdkInstance.leaderboards.getLeaderboardEntries || sdkInstance.leaderboards.getEntries;
-    if (!method) return [];
-    const data = await method(name, { quantityTop, includeUser, quantityAround: 3 });
+    const lb = sdkInstance.leaderboards;
+    const opts = { quantityTop, includeUser, quantityAround: 3 };
+    const data = lb.getLeaderboardEntries
+      ? await lb.getLeaderboardEntries(name, opts)
+      : lb.getEntries
+        ? await lb.getEntries(name, opts)
+        : { entries: [] };
     return (data.entries ?? []).map((e: LeaderboardEntry) => ({
       rank: e.rank,
       score: e.score,
@@ -214,24 +225,22 @@ export function unsubscribeFromSdkEvents(): void {
 export interface AdCallbacks {
   onOpen?: () => void;
   onClose?: (wasShown: boolean) => void;
-  onError?: () => void;
+  onError?: (err?: Error) => void;
+  onOffline?: () => void;
 }
 
 export function showFullscreenAd(callbacks: AdCallbacks = {}): void {
-  if (!sdkInstance) return;
+  if (!sdkInstance) {
+    callbacks.onClose?.(false);
+    return;
+  }
   gameplayStop();
   sdkInstance.adv.showFullscreenAdv({
     callbacks: {
-      onOpen: () => {
-        gameplayStop();
-        callbacks.onOpen?.();
-      },
-      onClose: (wasShown) => {
-        callbacks.onClose?.(wasShown);
-      },
-      onError: () => {
-        callbacks.onError?.();
-      },
+      onOpen: () => callbacks.onOpen?.(),
+      onClose: (wasShown) => { gameplayStart(); callbacks.onClose?.(wasShown); },
+      onError: (err) => { gameplayStart(); callbacks.onError?.(err); },
+      onOffline: () => { gameplayStart(); callbacks.onOffline?.(); },
     },
   });
 }
@@ -240,26 +249,36 @@ export function showRewardedAd(
   onReward: () => void,
   callbacks: AdCallbacks = {}
 ): void {
-  if (!sdkInstance) {
-    onReward();
-    return;
-  }
+  if (!sdkInstance) { callbacks.onError?.(); return; }
   gameplayStop();
   sdkInstance.adv.showRewardedVideo({
     callbacks: {
-      onOpen: () => {
-        gameplayStop();
-        callbacks.onOpen?.();
-      },
+      onOpen: () => callbacks.onOpen?.(),
       onRewarded: () => onReward(),
-      onClose: (wasShown) => {
-        callbacks.onClose?.(wasShown);
-      },
-      onError: () => {
-        callbacks.onError?.();
-      },
+      onClose: () => { gameplayStart(); callbacks.onClose?.(true); },
+      onError: () => { gameplayStart(); callbacks.onError?.(); },
     },
   });
+}
+
+// ============ Sticky-баннер ============
+
+let bannerVisible = false;
+
+export async function showStickyBanner(): Promise<void> {
+  if (!sdkInstance?.adv?.showBannerAdv) return;
+  try {
+    const status = await sdkInstance.adv.getBannerAdvStatus?.();
+    if (status?.stickyAdvIsShowing) { bannerVisible = true; return; }
+    const res = await sdkInstance.adv.showBannerAdv();
+    bannerVisible = Boolean(res?.stickyAdvIsShowing ?? true);
+  } catch { /* ignore */ }
+}
+
+export async function hideStickyBanner(): Promise<void> {
+  if (!sdkInstance?.adv?.hideBannerAdv || !bannerVisible) return;
+  try { await sdkInstance.adv.hideBannerAdv(); } catch { /* ignore */ }
+  bannerVisible = false;
 }
 
 export function setupPlatformGuards(): void {

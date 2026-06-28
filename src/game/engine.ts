@@ -109,16 +109,17 @@ function generateDailyGrid(canvasWidth: number, topOffset: number): Bubble[] {
 
 function seededRandom(seed: number) {
   const m = 2 ** 31 - 1;
-  let state = seed;
+  let state = seed % m;
+  if (state <= 0) state = 1;
   return () => {
-    state = (state * 1103515245 + 12345) & m;
+    state = (Math.imul(state, 1103515245) + 12345) & m;
     return state / m;
   };
 }
 
 export function getDailySeed(): number {
-  const d = new Date();
-  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  const iso = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  return Number(iso);
 }
 
 const SPECIALS: BubbleSpecial[] = ['bomb', 'rainbow', 'lightning', 'freeze'];
