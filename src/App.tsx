@@ -39,7 +39,6 @@ const T: Record<string, Record<LangKey, string>> = {
   gameOver: { ru: 'Игра окончена', en: 'Game Over', tr: 'Oyun Bitti' },
   levelComplete: { ru: 'Уровень пройден!', en: 'Level Complete!', tr: 'Seviye Tamamlandı!' },
   nextLevel: { ru: 'Далее', en: 'Next', tr: 'İleri' },
-  watchAd: { ru: '🎬 Продолжить за рекламу', en: '🎬 Continue for Ad', tr: '🎬 Reklamla Devam' },
   watchAdForShots: { ru: '🎬 +5 за рекламу', en: '🎬 +5 for ad', tr: '🎬 Reklam için +5' },
   highScore: { ru: 'Рекорд', en: 'High Score', tr: 'En Yüksek Skor' },
   campaign: { ru: 'Кампания', en: 'Campaign', tr: 'Kampanya' },
@@ -294,40 +293,6 @@ export default function App() {
     showStickyBanner();
   }, []);
 
-  // ─── Watch ad ──────────────────────────────────────────────────────────
-  const handleWatchAd = useCallback(() => {
-    showRewardedAd(
-      () => {
-        const g = gRef.current;
-        if (!g) return;
-        // Даём передышку — сдвигаем пузыри вверх
-        const pushUp = BUBBLE_RADIUS * 3;
-        g.bubbles.forEach(b => {
-          if (!b.popping && !b.falling) b.y -= pushUp;
-        });
-        // Убираем самые нижние пузыри если всё равно слишком низко
-        const { h } = sizeRef.current;
-        const dangerY = getDangerY(h);
-        g.bubbles = g.bubbles.filter(b => {
-          if (b.popping || b.falling) return true;
-          return b.y < dangerY;
-        });
-        g.shotsLeft = getMaxShots(g.levelIdx);
-        g.gameOverFired = false;
-        g.canShoot = true;
-        g.nextColor = pickShooterColor(g.levelIdx, g.bubbles);
-        g.reserveColor = pickShooterColor(g.levelIdx, g.bubbles, g.nextColor);
-        pausedRef.current = false;
-        overlayRef.current = 'none';
-        setOverlay('none');
-        setHud(h2 => ({ ...h2, shotsLeft: g.shotsLeft }));
-        gameplayStart();
-        if (!sound.isMuted()) sound.resume();
-      },
-      { onOpen: () => sound.pause(), onClose: () => { if (!sound.isMuted()) sound.resume(); } }
-    );
-  }, []);
-
   // ═══════════════════════════════════════════════════════════════════════
   // ─── GAME LOOP — запускается один раз при screen='playing' ────────────
   // ═══════════════════════════════════════════════════════════════════════
@@ -416,8 +381,8 @@ export default function App() {
       if (g.score > p.highScore) p.highScore = g.score;
       saveProgressFn(p);
 
-      // Interstitial ad после каждого уровня кампании (кроме endless/daily)
-      if (lvl !== ENDLESS_LEVEL_IDX && lvl !== DAILY_LEVEL_IDX) {
+      // Interstitial ad каждые 2 уровня кампании (кроме endless/daily)
+      if (lvl !== ENDLESS_LEVEL_IDX && lvl !== DAILY_LEVEL_IDX && (lvl + 1) % 2 === 0) {
         showFullscreenAd({
           onOpen: () => sound.pause(),
           onClose: () => { if (!sound.isMuted()) sound.resume(); },
@@ -970,7 +935,6 @@ export default function App() {
             {hud.combo > 0 && <p className="text-orange-400 text-sm mb-4">🔥 Max Combo: x{hud.combo}</p>}
             <div className="space-y-3 w-52 mt-2">
               <button onClick={() => startGame(hud.levelIdx)} className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm active:scale-95">🔄 {t('restart', lang)}</button>
-              <button onClick={handleWatchAd} className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-sm active:scale-95">{t('watchAd', lang)}</button>
               <button onClick={handleMenu} className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white/60 font-semibold text-sm active:scale-95">🏠 {t('menu', lang)}</button>
             </div>
           </div>
