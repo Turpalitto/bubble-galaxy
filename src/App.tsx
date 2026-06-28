@@ -41,6 +41,7 @@ const T: Record<string, Record<LangKey, string>> = {
   levelComplete: { ru: 'Уровень пройден!', en: 'Level Complete!', tr: 'Seviye Tamamlandı!' },
   nextLevel: { ru: 'Далее', en: 'Next', tr: 'İleri' },
   watchAd: { ru: '🎬 Продолжить за рекламу', en: '🎬 Continue for Ad', tr: '🎬 Reklamla Devam' },
+  watchAdForShots: { ru: '🎬 +5 за рекламу', en: '🎬 +5 for ad', tr: '🎬 Reklam için +5' },
   leaderboard: { ru: 'Рейтинг', en: 'Leaderboard', tr: 'Sıralama' },
   authForLB: { ru: 'Войти для рейтинга', en: 'Sign in for Leaderboard', tr: 'Sıralama için giriş' },
   highScore: { ru: 'Рекорд', en: 'High Score', tr: 'En Yüksek Skor' },
@@ -975,8 +976,9 @@ export default function App() {
                 }
               )}
               className="ml-2 text-amber-400 text-xs font-semibold border border-amber-500/40 rounded-lg px-2 py-1 hover:bg-amber-500/10 transition"
+              aria-label={t('watchAdForShots', lang)}
             >
-              🎬 +5
+              {t('watchAdForShots', lang)}
             </button>
           )}
           {hud.combo > 1 && <span className="text-orange-400 font-bold">🔥 x{hud.combo}</span>}

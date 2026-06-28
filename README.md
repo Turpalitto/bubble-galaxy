@@ -26,6 +26,6 @@ npm run build    # dist/index.html (single file for Yandex upload)
 
 ## Game modes
 
-- Campaign — 8 levels with stars
+- Campaign — 14 levels with stars
 - Endless — infinite waves
 - Daily — daily challenge
