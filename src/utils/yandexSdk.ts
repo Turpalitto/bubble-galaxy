@@ -156,6 +156,7 @@ export async function requestAuth(): Promise<boolean> {
   }
 }
 
+// Leaderboards temporarily disabled in App.tsx — functions kept for future re-enable.
 export async function canUseLeaderboards(): Promise<boolean> {
   if (!sdkInstance) return false;
   if (sdkInstance.isAvailableMethod) {

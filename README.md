@@ -7,7 +7,7 @@ Browser bubble shooter built for [Yandex Games](https://yandex.ru/games/).
 - React 19 + TypeScript + Vite 7
 - Tailwind CSS 4
 - Canvas 2D game engine
-- Yandex Games SDK v2 (cloud saves, ads, leaderboards)
+- Yandex Games SDK v2 (cloud saves, ads)
 
 ## Scripts
 
@@ -21,10 +21,11 @@ npm run build    # dist/index.html (single file for Yandex upload)
 
 1. Build: `npm run build`
 2. Upload `dist/index.html` to the Yandex Games console
-3. Create leaderboards (see [Настройка лидербордов в Консоли Яндекс.Игр](#настройка-лидербордов-в-консоли-яндексигр) below)
-4. Promo assets: `promo/*.svg` (convert to PNG for console)
+3. Promo assets: `promo/*.svg` (convert to PNG for console)
 
-## Настройка лидербордов в Консоли Яндекс.Игр
+## Настройка лидербордов в Консоли Яндекс.Игр (отложено)
+
+> **Не используется** в текущей сборке — лидерборды временно отключены в коде.
 
 Лидерборды создаются вручную в [Консоли Яндекс.Игр](https://console.yandex.ru/games/) → выберите игру → вкладка **Лидерборды** → **Добавить лидерборд**.
 

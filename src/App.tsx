@@ -17,8 +17,7 @@ import {
 import type { Bubble, Projectile, ParticleEffect, ScorePopup, PlayerProgress } from './game/types';
 import {
   initYandexSdk, signalLoadingReady, gameplayStart, gameplayStop, getSdkLang,
-  loadPlayerData, savePlayerData, isPlayerAuthorized, requestAuth,
-  submitLeaderboardScore, getLeaderboardEntries, subscribeToSdkEvents, unsubscribeFromSdkEvents,
+  loadPlayerData, savePlayerData, subscribeToSdkEvents, unsubscribeFromSdkEvents,
   showFullscreenAd, showRewardedAd, setupPlatformGuards,
   showStickyBanner, hideStickyBanner,
 } from './utils/yandexSdk';
@@ -42,8 +41,6 @@ const T: Record<string, Record<LangKey, string>> = {
   nextLevel: { ru: 'Далее', en: 'Next', tr: 'İleri' },
   watchAd: { ru: '🎬 Продолжить за рекламу', en: '🎬 Continue for Ad', tr: '🎬 Reklamla Devam' },
   watchAdForShots: { ru: '🎬 +5 за рекламу', en: '🎬 +5 for ad', tr: '🎬 Reklam için +5' },
-  leaderboard: { ru: 'Рейтинг', en: 'Leaderboard', tr: 'Sıralama' },
-  authForLB: { ru: 'Войти для рейтинга', en: 'Sign in for Leaderboard', tr: 'Sıralama için giriş' },
   highScore: { ru: 'Рекорд', en: 'High Score', tr: 'En Yüksek Skor' },
   campaign: { ru: 'Кампания', en: 'Campaign', tr: 'Kampanya' },
   howToPlay: { ru: 'Стреляй пузырями, собирай 3+ в ряд!', en: 'Shoot bubbles, match 3+!', tr: 'Baloncuk fırlat, 3+ eşleştir!' },
@@ -78,8 +75,6 @@ export default function App() {
   const [progress, setProgress] = useState<PlayerProgress>(DEFAULT_PROGRESS);
   const [lang, setLang] = useState<LangKey>('en');
   const [isMuted, setIsMuted] = useState(false);
-  const [lbData, setLbData] = useState<{ rank: number; score: number; name: string }[]>([]);
-  const [playerAuth, setPlayerAuth] = useState(false);
   const [gameTick, setGameTick] = useState(0);
 
   // ─── Refs — всё что нужно игровому циклу ────────────────────────────────
@@ -144,7 +139,6 @@ export default function App() {
       showStickyBanner();
       setLang(detectLang());
       loadProgressFn();
-      isPlayerAuthorized().then(setPlayerAuth);
     }).catch(() => {
       setLang(detectLang());
       loadProgressFn();
@@ -334,18 +328,6 @@ export default function App() {
     );
   }, []);
 
-  // ─── Leaderboard ──────────────────────────────────────────────────────
-  const loadLeaderboard = useCallback(async () => {
-    const entries = await getLeaderboardEntries('bubbleGalaxy', 10, true);
-    setLbData(entries);
-  }, []);
-
-  const handleAuth = useCallback(async () => {
-    const ok = await requestAuth();
-    setPlayerAuth(ok);
-    if (ok) loadLeaderboard();
-  }, [loadLeaderboard]);
-
   // ═══════════════════════════════════════════════════════════════════════
   // ─── GAME LOOP — запускается один раз при screen='playing' ────────────
   // ═══════════════════════════════════════════════════════════════════════
@@ -408,10 +390,6 @@ export default function App() {
       if (g.score > p.highScore) p.highScore = g.score;
       saveProgressFn(p);
 
-      const lbName = g.levelIdx === ENDLESS_LEVEL_IDX ? 'bubbleGalaxyEndless'
-        : g.levelIdx === DAILY_LEVEL_IDX ? 'bubbleGalaxyDaily' : 'bubbleGalaxy';
-      submitLeaderboardScore(lbName, g.score);
-
       showFullscreenAd({
         onOpen: () => sound.pause(),
         onClose: () => { if (!sound.isMuted()) sound.resume(); },
@@ -437,7 +415,6 @@ export default function App() {
       if (g.levelIdx === DAILY_LEVEL_IDX) markDailyCompleted();
       if (g.score > p.highScore) p.highScore = g.score;
       saveProgressFn(p);
-      submitLeaderboardScore('bubbleGalaxy', g.score);
 
       // Interstitial ad после каждого уровня кампании (кроме endless/daily)
       if (lvl !== ENDLESS_LEVEL_IDX && lvl !== DAILY_LEVEL_IDX) {
@@ -924,26 +901,6 @@ export default function App() {
         <button onClick={toggleSound} className="relative z-10 text-purple-400/60 hover:text-purple-300 text-sm transition-colors">
           {isMuted ? '🔇' : '🔊'} {t('sound', lang)}
         </button>
-
-        <div className="relative z-10 w-full max-w-xs mt-4">
-          <button onClick={loadLeaderboard} className="w-full py-2 rounded-lg bg-white/5 border border-purple-500/20 text-purple-300 text-sm hover:bg-purple-500/10 transition-all">
-            🏅 {t('leaderboard', lang)}
-          </button>
-          {!playerAuth && (
-            <button onClick={handleAuth} className="w-full py-1.5 mt-1 rounded-lg text-purple-400/50 text-xs hover:text-purple-300 transition-colors">
-              {t('authForLB', lang)}
-            </button>
-          )}
-          {lbData.length > 0 && (
-            <div className="mt-2 rounded-lg bg-black/30 p-2 text-xs">
-              {lbData.slice(0, 5).map((e, i) => (
-                <div key={i} className="flex justify-between text-purple-200/70 py-0.5">
-                  <span>{e.rank}. {e.name}</span><span className="text-yellow-400">{e.score.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     );
   }
