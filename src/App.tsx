@@ -960,6 +960,25 @@ export default function App() {
           <span className="text-purple-300">{t('level', lang)} {hud.levelLabel}</span>
           <span className="text-yellow-400 font-bold">⭐ {hud.score.toLocaleString()}</span>
           <span className="text-white/60">{t('shots', lang)}: {hud.shotsLeft}</span>
+          {hud.shotsLeft <= 3 && overlay === 'none' && screen === 'playing' && (
+            <button
+              onClick={() => showRewardedAd(
+                () => {
+                  const g = gRef.current; if (!g) return;
+                  g.shotsLeft += 5;
+                  setHud(h => ({ ...h, shotsLeft: g.shotsLeft }));
+                },
+                {
+                  onOpen: () => { pausedRef.current = true; sound.pause(); },
+                  onClose: () => { pausedRef.current = false; if (!sound.isMuted()) sound.resume(); },
+                  onError: () => { pausedRef.current = false; if (!sound.isMuted()) sound.resume(); },
+                }
+              )}
+              className="ml-2 text-amber-400 text-xs font-semibold border border-amber-500/40 rounded-lg px-2 py-1 hover:bg-amber-500/10 transition"
+            >
+              🎬 +5
+            </button>
+          )}
           {hud.combo > 1 && <span className="text-orange-400 font-bold">🔥 x{hud.combo}</span>}
         </div>
         <div className="flex items-center gap-2">

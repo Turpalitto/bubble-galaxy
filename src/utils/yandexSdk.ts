@@ -76,7 +76,13 @@ let sdkResumeHandler: (() => void) | null = null;
 
 export async function initYandexSdk(): Promise<YandexSDK | null> {
   if (sdkInstance) return sdkInstance;
-  if (!window.YaGames) return null;
+  for (let i = 0; i < 200 && typeof window.YaGames === 'undefined'; i++) {
+    await new Promise(r => setTimeout(r, 50));
+  }
+  if (!window.YaGames) {
+    console.warn('YaGames not available — running outside Yandex Games platform');
+    return null;
+  }
   try {
     sdkInstance = await window.YaGames.init();
     return sdkInstance;
@@ -283,12 +289,11 @@ export async function hideStickyBanner(): Promise<void> {
 
 export function setupPlatformGuards(): void {
   const block = (e: Event) => e.preventDefault();
-  document.addEventListener('contextmenu', block);
-  document.addEventListener('selectstart', block);
+  window.addEventListener('contextmenu', block);
+  window.addEventListener('selectstart', block);
+  window.addEventListener('gesturestart', block);
   document.addEventListener('dragstart', block);
-  // п.1.10.2 — блокируем ВСЕ браузерные жесты (scroll, pull-to-refresh, pinch-zoom)
-  const preventScroll = (e: TouchEvent) => {
-    e.preventDefault();
-  };
+  document.body.style.overflow = 'hidden';
+  const preventScroll = (e: TouchEvent) => e.preventDefault();
   document.addEventListener('touchmove', preventScroll, { passive: false });
 }
