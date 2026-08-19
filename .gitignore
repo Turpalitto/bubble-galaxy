@@ -7,3 +7,6 @@ dist/
 Thumbs.db
 *.log
 .vite/
+
+mimo-launcher/node_modules/
+mimo-launcher/dist/

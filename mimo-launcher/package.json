@@ -1,0 +1,38 @@
+{
+  "name": "mimo-launcher",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "concurrently -n api,ui -c cyan,magenta \"node server/index.mjs\" \"vite\"",
+    "build": "vite build",
+    "start": "node server/index.mjs",
+    "local": "node scripts/launch.mjs browser",
+    "local:desktop": "node scripts/launch.mjs desktop",
+    "desktop": "npm run build && electron .",
+    "desktop:run": "electron .",
+    "launch": "npm run desktop",
+    "preview": "npm run build && npm start",
+    "server": "node server/index.mjs"
+  },
+  "dependencies": {
+    "clsx": "2.1.1",
+    "cors": "2.8.5",
+    "express": "5.1.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "tailwind-merge": "3.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.17",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "concurrently": "9.2.1",
+    "electron": "36.4.0",
+    "tailwindcss": "4.1.17",
+    "typescript": "5.9.3",
+    "vite": "7.3.2"
+  }
+}
