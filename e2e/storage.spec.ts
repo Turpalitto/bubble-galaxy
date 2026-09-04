@@ -86,7 +86,16 @@ test.describe('Сохранения: облако и отказ хранилищ
     // Максимум звёзд по каждому уровню с обеих сторон.
     expect(merged.stars).toMatchObject({ '5': 3, '9': 2, '12': 3 });
     expect(merged.endlessBest).toBe(7);
-    // Облако получило объединённый снимок.
+    // Облако получило объединённый снимок после короткого окна coalescing.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () => (window as unknown as { __cloudWrites: Array<{ save: Record<string, unknown> }> }).__cloudWrites.length
+          ),
+        { timeout: 5_000 }
+      )
+      .toBeGreaterThan(0);
     const writes = await page.evaluate(
       () => (window as unknown as { __cloudWrites: Array<{ save: Record<string, unknown> }> }).__cloudWrites
     );

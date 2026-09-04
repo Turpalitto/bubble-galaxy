@@ -8,6 +8,7 @@ import { initReturnReminder } from './game/reminder';
 import { queryParam } from './query';
 import { applySeason } from './game/season';
 import { SaveStore, defaultSave, mergeSave, totalStars } from './game/save';
+import { todayKey } from './game/daily';
 import { createPlatform } from './platform';
 import { App } from './ui/app';
 import { setTargetSkin } from './ui/sprites';
@@ -53,14 +54,26 @@ async function boot(): Promise<void> {
   // Ставим его после QA-обёртки, иначе game_start ушёл бы из тестового сеанса,
   // и отправляем первое событие уже настоящим трекером, а не в no-op.
   setAnalyticsTracker(analyticsDebug ? createDebugTracker() : platform.createAnalyticsTracker());
-  track({ type: 'game_start' });
+  // Метрики возврата (D1/D7/D30) считаются из дат в сейве, без идентификаторов.
+  // QA-сеанс не пишет прогресс, поэтому и сессию не отмечаем.
+  const store = new SaveStore(platform, save);
+  const session = qaMode ? null : store.beginSession(todayKey(new Date(platform.serverTime())));
+  track(
+    session
+      ? {
+          type: 'game_start',
+          sessionNumber: session.sessionNumber,
+          daysSinceFirstLaunch: session.daysSinceFirst,
+          daysSinceLastSession: session.daysSinceLast
+        }
+      : { type: 'game_start' }
+  );
   // Первый запуск следует языку платформы; ручной выбор хранится в сейве.
   // ?lang= остаётся QA-переопределением и обрабатывается внутри initI18n.
   save.lang = initI18n(hadSave && save.langChosen ? save.lang : platform.getLang());
   document.title = `${t('game.titleTop')} ${t('game.titleBottom')}`;
   setTargetSkin(save.targetSkin);
   document.documentElement.classList.toggle('high-contrast', save.highContrast === true);
-  const store = new SaveStore(platform, save);
   initReturnReminder(store);
   const audio = new GameAudio(save.sound, save.music);
   const app = new App(platform, store, audio);
@@ -81,6 +94,8 @@ async function boot(): Promise<void> {
   // локально и после любого прогресса — обычное меню
   if (platform.name === 'yandex' && totalStars(save) === 0 && !save.daily) {
     app.startLevel(1);
+  } else if (session?.daysSinceLast !== undefined) {
+    app.welcomeBack(session.daysSinceLast);
   }
 }
 

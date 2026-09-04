@@ -25,7 +25,14 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     languageOptions: {
-      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+      parserOptions: {
+        // `scripts/run-solver-tests.mjs` — единственный не-TS файл проекта; он
+        // вне `include` tsconfig, и без allowDefaultProject типозависимый парсер
+        // падал с «was not found by the project service» — `npm run lint` (и
+        // шаг lint в CI на master) был красным после коммита 639b723.
+        projectService: { allowDefaultProject: ['scripts/*.mjs'] },
+        tsconfigRootDir: import.meta.dirname
+      },
       globals: { ...globals.browser, ...globals.node, ...globals.worker }
     },
     rules: {

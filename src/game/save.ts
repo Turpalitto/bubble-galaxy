@@ -1,11 +1,20 @@
 import { campaignPositionOf } from './campaign';
+import { track } from './analytics';
 import type { DailyState } from './daily';
 import type { Platform } from '../platform/types';
 import { applyWeeklyClaim, applyWeeklyEvent, type WeeklyQuestKind, type WeeklyState } from './weekly';
 import type { GrandpaTrialProgress } from './grandpa-trial';
+import {
+  applyDailyQuestClaim,
+  applyDailyQuestEvent,
+  mergeDailyQuests,
+  sanitizeDailyQuests,
+  type DailyQuestKind,
+  type DailyQuestState
+} from './daily-quests';
 
 export interface SaveData {
-  v: 1;
+  v: 2;
   /** Лучший результат по уровням: id -> 0..3 звезды. */
   stars: Record<string, number>;
   /** Лучшие ходы по уровням: id -> минимальное число ходов, за которое пройден. */
@@ -98,6 +107,16 @@ export interface SaveData {
    * максимум очков, разных — более свежая неделя (та же политика, что у weekly).
    */
   eliteWeekly?: { week: string; score: number; medal: number };
+  /** «Задания дня»: прогресс по видам и забранные награды текущего дня (см. daily-quests.ts). */
+  quests?: DailyQuestState;
+  /**
+   * Метрики возврата без идентификаторов: дата первого запуска, дата последней
+   * сессии и их счётчик. Из них считаются D1/D7/D30 (аналитика) и «дед
+   * соскучился» после перерыва. Все поля опциональны — старые сейвы валидны.
+   */
+  firstLaunch?: string;
+  lastSeen?: string;
+  sessions?: number;
 }
 
 export function defaultSave(): SaveData {
@@ -112,7 +131,7 @@ export function defaultSave(): SaveData {
  * Правило AGENTS.md «не менять формат без миграции» обеспечивается этим
  * механизмом, а не только дисциплиной.
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 /**
  * Шаги миграции: ключ — версия, ИЗ которой переходим. Шаг получает сырой
@@ -121,7 +140,11 @@ export const SAVE_VERSION = 1;
  * есть — их отбросит проверка версии ниже (сейв «не узнанной» будущей версии
  * мигрировать нельзя).
  */
-export const SAVE_MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string, unknown>> = {};
+export const SAVE_MIGRATIONS: Record<number, (raw: Record<string, unknown>) => Record<string, unknown>> = {
+  // v2 добавляет только опциональные retention-поля и состояние заданий дня.
+  // Данные v1 полностью совместимы: достаточно явно поднять номер версии.
+  1: (raw) => ({ ...raw, v: 2 })
+};
 
 const MAX_MIGRATION_STEPS = 32;
 
@@ -244,6 +267,10 @@ export function sanitizeSave(raw: unknown): SaveData | null {
         })()
       : undefined,
     eliteWeekly: sanitizeEliteWeekly(r.eliteWeekly),
+    quests: sanitizeDailyQuests(r.quests),
+    firstLaunch: typeof r.firstLaunch === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.firstLaunch) ? r.firstLaunch : undefined,
+    lastSeen: typeof r.lastSeen === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.lastSeen) ? r.lastSeen : undefined,
+    sessions: Number.isInteger(r.sessions) && (r.sessions as number) >= 0 ? Math.min(1_000_000, r.sessions as number) : undefined,
     bestMoves: sanitizeBestMoves(r.bestMoves),
     masteredLevels: sanitizeMasteredLevels(r.masteredLevels)
   };
@@ -409,6 +436,12 @@ export function mergeSave(a: SaveData, b: SaveData): SaveData {
     achievements: mergeSeen(a.achievements, b.achievements),
     endlessResume: Math.max(a.endlessResume ?? 0, b.endlessResume ?? 0) || undefined,
     eliteWeekly: mergeEliteWeekly(sanitizeEliteWeekly(a.eliteWeekly), sanitizeEliteWeekly(b.eliteWeekly)),
+    quests: mergeDailyQuests(sanitizeDailyQuests(a.quests), sanitizeDailyQuests(b.quests)),
+    // Первый запуск — самый ранний, последняя сессия — самая поздняя, сессии — максимум
+    // (счётчик не суммируем: облако и локаль обычно описывают одни и те же сессии).
+    firstLaunch: [a.firstLaunch, b.firstLaunch].filter((d): d is string => !!d).sort()[0],
+    lastSeen: [a.lastSeen, b.lastSeen].filter((d): d is string => !!d).sort().pop(),
+    sessions: Math.max(a.sessions ?? 0, b.sessions ?? 0) || undefined,
     bestMoves: (() => {
       const out = { ...(a.bestMoves ?? {}) };
       for (const [k, v] of Object.entries(b.bestMoves ?? {})) {
@@ -491,6 +524,14 @@ function mergeSeen(a: string[] | undefined, b: string[] | undefined): string[] |
   if (!a && !b) return undefined;
   const set = new Set([...(a ?? []), ...(b ?? [])]);
   return set.size ? [...set].slice(0, 200) : undefined;
+}
+
+/** Календарная разница в днях между двумя ключами YYYY-MM-DD (UTC-полдень, без DST-сюрпризов). */
+export function daysBetween(fromKey: string, toKey: string): number {
+  const from = Date.parse(`${fromKey}T12:00:00Z`);
+  const to = Date.parse(`${toKey}T12:00:00Z`);
+  if (Number.isNaN(from) || Number.isNaN(to)) return 0;
+  return Math.max(0, Math.round((to - from) / 86_400_000));
 }
 
 export function totalStars(s: SaveData): number {
@@ -663,6 +704,41 @@ export class SaveStore {
   }
 
   /** Забирает награду недельной цели; true, если начислена (цель выполнена и ещё не забрана). */
+  recordQuestEvent(day: string, kind: DailyQuestKind, amount = 1): void {
+    this.data.quests = applyDailyQuestEvent(this.data.quests, day, kind, amount);
+    this.persist();
+  }
+
+  claimDailyQuest(day: string, questKey: string, goalReached: boolean, rewardHints: number): boolean {
+    if (!goalReached) return false;
+    const next = applyDailyQuestClaim(this.data.quests, day, questKey);
+    if (!next) return false;
+    this.data.quests = next;
+    this.data.hintTokens = Math.min(99, (this.data.hintTokens ?? 0) + rewardHints);
+    this.persist();
+    return true;
+  }
+
+  /**
+   * Отмечает начало сессии: возвращает число дней с прошлой сессии (0 — сегодня
+   * уже заходили, undefined — первый запуск на этом сейве). Вызывается один раз
+   * на boot, до первого события аналитики.
+   */
+  beginSession(todayKey: string): { sessionNumber: number; daysSinceFirst?: number; daysSinceLast?: number } {
+    const prevSeen = this.data.lastSeen;
+    const first = this.data.firstLaunch ?? todayKey;
+    const sessionNumber = (this.data.sessions ?? 0) + 1;
+    this.data.firstLaunch = first;
+    this.data.lastSeen = todayKey;
+    this.data.sessions = sessionNumber;
+    this.persist();
+    return {
+      sessionNumber,
+      daysSinceFirst: daysBetween(first, todayKey),
+      daysSinceLast: prevSeen ? daysBetween(prevSeen, todayKey) : undefined
+    };
+  }
+
   claimWeeklyQuest(week: string, questKey: string, goalReached: boolean, rewardHints: number): boolean {
     if (!goalReached) return false;
     const next = applyWeeklyClaim(this.data.weekly, week, questKey);
@@ -809,7 +885,11 @@ export class SaveStore {
   rememberAchievements(keys: Iterable<string>): void {
     const seen = new Set(this.data.achievements ?? []);
     const before = seen.size;
-    for (const key of keys) seen.add(key);
+    for (const key of keys) {
+      // Событие воронки уходит ровно один раз — в момент первой фиксации ключа.
+      if (!seen.has(key)) track({ type: 'achievement_unlocked', key });
+      seen.add(key);
+    }
     if (seen.size === before) return;
     this.data.achievements = [...seen].slice(0, 100);
     this.persist();

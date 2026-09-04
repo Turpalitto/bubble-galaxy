@@ -5,6 +5,7 @@
  * push — если вкладку закрыть, таймер умирает вместе с ней. Честная замена
  * push для казуальной игры без бэкенда, а не его полноценный аналог.
  */
+import { t } from './i18n';
 import type { SaveStore } from './save';
 
 const REMINDER_DELAY_MS = 20 * 60 * 60 * 1000; // 20 часов — раньше, чем сгорит daily-streak
@@ -25,8 +26,9 @@ function scheduleReminder(store: SaveStore): void {
     scheduled = false;
     if (!document.hidden || !store.data.notifyOptIn) return;
     try {
-      new Notification('Переполох во дворе', {
-        body: 'Дедов жигулёнок заскучал во дворе — загляни и не теряй серию 🔥',
+      // Текст локализован: раньше en/tr-игроки получали напоминание по-русски.
+      new Notification(t('reminder.title'), {
+        body: t('reminder.body'),
         tag: 'return-reminder'
       });
     } catch {

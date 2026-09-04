@@ -224,9 +224,92 @@ declare global {
   }
 }
 
+/**
+ * Коалесцирует облачные записи `player.setData`.
+ *
+ * Почему: лимит платформы — 100 вызовов setData за 5 минут (документация
+ * yandex.ru/dev/games/doc/ru/sdk/sdk-player, «Ограничения методов»). Один
+ * `finishLevel` делает 5–8 `SaveStore.persist()` подряд (weekly, звёзды,
+ * рекорд ходов, mastered, достижения, lastLevel следующего уровня), и каждый
+ * уходил отдельным `setData(..., flush=true)`. Быстрый игрок на лёгких уровнях
+ * (15–20 секунд на уровень) выбивал квоту за несколько минут: облако начинало
+ * отклонять записи, прогресс расходился с localStorage, а при смене устройства
+ * терялся.
+ *
+ * Как: запись откладывается на `delayMs`, все изменения за это окно схлопываются
+ * в один запрос с последним снимком. Пока запрос в полёте, новый снимок ждёт его
+ * завершения (не более одного запроса одновременно). `flush()` вызывается на
+ * `pagehide`/скрытии вкладки, чтобы не потерять последний снимок при закрытии.
+ * localStorage при этом пишется сразу и не участвует в коалесцировании.
+ */
+export class CloudSaveCoalescer {
+  private pending: SaveData | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private inFlight: Promise<void> | null = null;
+  /** Сколько раз снимки были схлопнуты в один запрос (для тестов/диагностики). */
+  coalesced = 0;
+
+  constructor(
+    private readonly send: (data: SaveData) => Promise<void>,
+    private readonly delayMs = 1500,
+    private readonly now: () => number = () => Date.now()
+  ) {}
+
+  schedule(data: SaveData): void {
+    if (this.pending) this.coalesced++;
+    // Не держим ссылку на изменяемый объект SaveData: даже прямой вызов
+    // адаптера (мимо SaveStore) должен отправить состояние на момент schedule.
+    this.pending = JSON.parse(JSON.stringify(data)) as SaveData;
+    if (this.timer === null) this.timer = setTimeout(() => void this.flush(), this.delayMs);
+  }
+
+  /** Немедленно отправляет отложенный снимок (если есть). Ошибки только логируются. */
+  async flush(): Promise<void> {
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.inFlight) await this.inFlight;
+    const data = this.pending;
+    if (!data) return;
+    this.pending = null;
+    const startedAt = this.now();
+    this.inFlight = this.send(data)
+      .catch((e) => console.warn('[platform] не удалось сохранить в облако:', e))
+      .finally(() => {
+        this.inFlight = null;
+        // Пока запрос шёл, могли прийти новые изменения — отправляем их следующим
+        // окном, не раньше `delayMs` от старта предыдущего запроса.
+        if (this.pending && this.timer === null) {
+          const wait = Math.max(0, this.delayMs - (this.now() - startedAt));
+          this.timer = setTimeout(() => void this.flush(), wait);
+        }
+      });
+    await this.inFlight;
+  }
+
+  get hasPending(): boolean {
+    return this.pending !== null || this.inFlight !== null;
+  }
+}
+
 export function createYandexPlatform(): Platform {
   let ysdk: Ysdk | null = null;
   let player: YsdkPlayer | null = null;
+  const cloudSaver = new CloudSaveCoalescer(async (data) => {
+    if (!player) return;
+    await player.setData({ save: data }, true);
+  });
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    // Последний снимок не должен пропасть при закрытии/сворачивании: pagehide —
+    // самый надёжный сигнал на мобильных, visibilitychange — страховка.
+    window.addEventListener('pagehide', () => void cloudSaver.flush());
+  }
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) void cloudSaver.flush();
+    });
+  }
   let myId: string | null = null;
   let adActive = false;
   let lifecycle: AdHandlers | null = null;
@@ -459,14 +542,16 @@ export function createYandexPlatform(): Platform {
     },
 
     async saveData(data: SaveData): Promise<void> {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      if (player) {
-        try {
-          await player.setData({ save: data }, true);
-        } catch (e) {
-          console.warn('[platform] не удалось сохранить в облако:', e);
-        }
+      // Локальная копия — мгновенно и всегда: это источник истины при потере
+      // сети и защита от закрытия вкладки до отправки в облако.
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (e) {
+        // Safari private mode/полная квота не должны блокировать исправное
+        // облако: cloudSaver всё равно получит снимок ниже.
+        console.warn('[platform] локальное сохранение недоступно:', e);
       }
+      if (player) cloudSaver.schedule(data);
     },
 
     /**

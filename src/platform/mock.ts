@@ -150,6 +150,8 @@ export function createMockPlatform(): Platform {
       return fakeAd('interstitial', h);
     },
     showRewarded(h: AdHandlers): Promise<boolean> {
+      // QA-сценарий отсутствия rewarded inventory/offline.
+      if (queryParam('rewardedSkip') === '1') return Promise.resolve(false);
       return fakeAd('rewarded', h);
     },
     // Локально события никуда не уходят — их видно в консоли (см. analytics.ts).

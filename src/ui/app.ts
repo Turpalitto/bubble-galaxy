@@ -102,6 +102,15 @@ import { confettiHtml } from './confetti';
 import { SettingsToggles } from './toggles';
 import { TVNavigator } from './tv-navigation';
 import { pickWeeklyChallenge, weeklyScore } from '../game/elite-weekly';
+import {
+  DAILY_QUEST_REWARD_HINTS,
+  dailyQuestProgress,
+  isDailyQuestClaimed,
+  readyDailyQuests,
+  selectDailyQuests,
+  type DailyQuestDef,
+  type DailyQuestKind
+} from '../game/daily-quests';
 import { wireDialog, type DialogOptions } from './dialog';
 
 import { endlessSparkline } from './sparkline';
@@ -116,6 +125,16 @@ import { endlessSparkline } from './sparkline';
  * механика без выделенной мини-главы).
  */
 const FREE_HINT_LEVEL_IDS = new Set([1, 2, 3, 17, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116]);
+
+/**
+ * Резерв пропуска уровня без rewarded-видео (см. обработчик btn-skip):
+ * цена в подсказках и порог рестартов для бесплатного «толчка деда».
+ */
+const SKIP_TOKEN_COST = 2;
+const SKIP_FREE_AFTER_RESTARTS = 6;
+
+/** Перерыв (дней), после которого дед встречает игрока отдельно и дарит подсказку. */
+const WELCOME_BACK_AFTER_DAYS = 3;
 
 /**
  * Жёсткий потолок interstitial за сессию. README обещает «не более 11 за
@@ -324,6 +343,30 @@ export class App {
   }
 
   /**
+   * Короткое системное сообщение тем же «голосом игры», что и обучающий
+   * hint-toast: один стиль для всех коротких уведомлений, объявляется
+   * скринридером (role=status), исчезает сам.
+   */
+  private toast(text: string, ms = 3200): void {
+    const slot = this.root.querySelector('.overlay-slot') ?? this.root;
+    const el = document.createElement('div');
+    el.className = 'hint-toast system-toast';
+    el.setAttribute('data-testid', 'system-toast');
+    el.setAttribute('role', 'status');
+    el.textContent = text;
+    slot.appendChild(el);
+    window.setTimeout(() => el.classList.add('gone'), ms);
+    window.setTimeout(() => el.remove(), ms + 600);
+  }
+
+  /** Списывает несколько подсказок атомарно: либо все, либо ни одной. */
+  private spendHintTokens(count: number): boolean {
+    if ((this.store.data.hintTokens ?? 0) < count) return false;
+    for (let i = 0; i < count; i++) this.store.spendHintToken();
+    return true;
+  }
+
+  /**
    * Плавная смена экрана через View Transitions API, где браузер её умеет:
    * кросс-фейд/сдвиг между старым и новым DOM без ручной хореографии на JS.
    * Прогрессивное улучшение — без поддержки или при prefers-reduced-motion
@@ -494,6 +537,25 @@ export class App {
     wireDialog(overlay, opts);
   }
 
+  /**
+   * Прогресс «заданий дня». Первый переход задания в «выполнено» отправляет
+   * событие воронки один раз — по разнице готовых до/после.
+   */
+  private questEvent(kind: DailyQuestKind, amount = 1): void {
+    const day = this.dailyKey();
+    const quests = this.dailyQuestsFor(day);
+    const readyBefore = readyDailyQuests(this.store.data.quests, day, quests);
+    this.store.recordQuestEvent(day, kind, amount);
+    if (readyDailyQuests(this.store.data.quests, day, quests) > readyBefore) {
+      const q = quests.find((quest) => quest.kind === kind);
+      if (q) track({ type: 'daily_quest_completed', key: q.key });
+    }
+  }
+
+  private dailyQuestsFor(day: string): DailyQuestDef[] {
+    return selectDailyQuests(day, campaignPositionOf(nextLevelToPlay(LEVELS, this.store.data).id));
+  }
+
   private dailyKey(): string {
     return todayKey(new Date(this.platform.serverTime()));
   }
@@ -596,6 +658,22 @@ export class App {
 
   // ---------- меню ----------
 
+  /**
+   * Возвращение после перерыва: дед встречает отдельной репликой и дарит одну
+   * подсказку. Честная механика возврата — без штрафов за отсутствие, без
+   * «сгоревших» наград; вызывается из boot один раз за сессию.
+   */
+  welcomeBack(daysAway: number): void {
+    if (daysAway < WELCOME_BACK_AFTER_DAYS) return;
+    this.store.addHintTokens(1);
+    track({ type: 'welcome_back', daysAway });
+    window.setTimeout(() => {
+      this.toast(t('welcome.back', { d: daysAway }), 5200);
+      const chip = this.root.querySelector<HTMLElement>('[data-testid=menu-hint-tokens]');
+      if (chip) chip.textContent = `💡 ${this.store.data.hintTokens ?? 0}`;
+    }, 900);
+  }
+
   showMenu(): void {
     // Откуда игрок вышел в меню — воронка «где выходят» (аналитика §11).
     // Читаем testid текущего экрана ДО его замены, не разбрасывая track() по
@@ -649,6 +727,16 @@ export class App {
     // ведёт в лигу, и номер уровня там смысла не имеет.
     const nextLevel = nextLevelToPlay(LEVELS, this.store.data);
     const nextPosition = campaignPositionOf(nextLevel.id);
+    // «Задания дня» — три микро-цели на сегодня; набор фиксирован датой и
+    // подрезан под прогресс новичка (см. daily-quests.ts).
+    const dailyQuests = selectDailyQuests(dailyKey, nextPosition).map((quest) => {
+      const progress = dailyQuestProgress(this.store.data.quests, dailyKey, quest);
+      const done = progress >= quest.goal;
+      const claimed = isDailyQuestClaimed(this.store.data.quests, dailyKey, quest.key);
+      return { quest, progress, done, claimed };
+    });
+    const questsReady = dailyQuests.filter((q) => q.done && !q.claimed).length;
+    const questsClaimed = dailyQuests.filter((q) => q.claimed).length;
     const chapterIndex = chapterOfPosition(nextPosition);
     const campaignPercent = Math.round((completed / LEVELS.length) * 100);
     this.root.innerHTML = `
@@ -746,6 +834,9 @@ export class App {
                 <button class="btn" data-testid="menu-achievements" aria-label="${t(
                   'achievements.title'
                 )}">🏅 ${achievementCount}/${ACHIEVEMENTS.length}</button>
+                <button class="btn${questsReady > 0 ? ' has-ready' : ''}" data-testid="menu-quests" aria-label="${t(
+                  'quests.title'
+                )}" title="${t('quests.title')}">📋 ${questsClaimed}/${dailyQuests.length}</button>
                 <button class="btn${weeklyQuests.some((q) => q.done && !q.claimed) ? ' has-ready' : ''}" data-testid="menu-weekly" aria-label="${t(
                   'weekly.title'
                 )}">🎯 ${weeklyQuests.filter((q) => q.claimed).length}/${weeklyQuests.length}</button>
@@ -814,8 +905,13 @@ export class App {
       this.audio.play('click');
       this.showWeeklyQuestsDialog(week, weeklyQuests);
     });
+    this.q('[data-testid=menu-quests]').addEventListener('click', () => {
+      this.audio.play('click');
+      this.showDailyQuestsDialog(dailyKey, dailyQuests);
+    });
     this.q('[data-testid=menu-gift]').addEventListener('click', () => {
       if (!this.store.claimDailyGift(dailyKey, giftAmount)) return;
+      track({ type: 'gift_claimed', hints: giftAmount });
       this.audio.play('star');
       // Один переход на оба изменения: обновлённое меню и диалог поверх него
       // должны появиться синхронно, без гонки со сроками View Transition.
@@ -1003,6 +1099,67 @@ export class App {
     if (this.platform.isTV) overlay.querySelector<HTMLElement>('[data-testid=gift-close]')!.focus({ preventScroll: true });
   }
 
+  /** Диалог «Задания дня» — тот же паттерн и стили, что у целей недели. */
+  private showDailyQuestsDialog(
+    day: string,
+    quests: { quest: DailyQuestDef; progress: number; done: boolean; claimed: boolean }[]
+  ): void {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.setAttribute('data-testid', 'quests-overlay');
+    const render = () => {
+      const allClaimed = quests.every((q) => q.claimed);
+      overlay.innerHTML = `
+        <div class="dialog weekly-dialog quests-dialog">
+          <h2>${t('quests.title')}</h2>
+          <div class="weekly-quests-list">
+            ${quests
+              .map(
+                ({ quest, progress, done, claimed }) => `
+              <div class="weekly-quest${done ? ' done' : ''}" data-testid="quest-${quest.key}">
+                <span class="weekly-quest-icon">${quest.icon}</span>
+                <span class="weekly-quest-label">${t(`quests.${quest.key}`)} · ${progress}/${quest.goal}</span>
+                <button class="btn btn-small weekly-claim" data-testid="quest-claim-${quest.key}"
+                  data-quest="${quest.key}" ${done && !claimed ? '' : 'disabled'}>${
+                  claimed ? `✓ ${t('quests.claimed')}` : `💡 ${t('quests.claim')}`
+                }</button>
+              </div>`
+              )
+              .join('')}
+          </div>
+          ${allClaimed ? `<p class="quests-all-done" data-testid="quests-all-done">${t('quests.allDone')}</p>` : ''}
+          <button class="btn btn-primary btn-big" data-testid="quests-close">${t('rules.close')}</button>
+        </div>`;
+      overlay.querySelectorAll<HTMLButtonElement>('.weekly-claim:not([disabled])').forEach((b) =>
+        b.addEventListener('click', () => {
+          const key = b.dataset.quest!;
+          const entry = quests.find((q) => q.quest.key === key);
+          if (!entry) return;
+          if (!this.store.claimDailyQuest(day, key, entry.done, DAILY_QUEST_REWARD_HINTS)) return;
+          track({ type: 'daily_quest_claimed', key, hints: DAILY_QUEST_REWARD_HINTS });
+          entry.claimed = true;
+          this.audio.play('star');
+          render();
+          const btn = this.root.querySelector<HTMLElement>('[data-testid=menu-quests]');
+          if (btn) {
+            btn.textContent = `📋 ${quests.filter((q) => q.claimed).length}/${quests.length}`;
+            btn.classList.toggle('has-ready', quests.some((q) => q.done && !q.claimed));
+          }
+          const chip = this.root.querySelector<HTMLElement>('[data-testid=menu-hint-tokens]');
+          if (chip) chip.textContent = `💡 ${this.store.data.hintTokens ?? 0}`;
+        })
+      );
+      overlay.querySelector('[data-testid=quests-close]')!.addEventListener('click', () => {
+        this.audio.play('click');
+        overlay.remove();
+      });
+      if (this.platform.isTV) overlay.querySelector<HTMLElement>('[data-testid=quests-close]')!.focus({ preventScroll: true });
+    };
+    render();
+    this.q('.overlay-slot').appendChild(overlay);
+    this.wireDialog(overlay, { onCancel: () => overlay.querySelector<HTMLElement>('[data-testid=quests-close]')?.click() });
+  }
+
   /**
    * Диалог, а не встроенный в меню блок: три интерактивные кнопки-цели
    * (44px touch target каждая) не помещаются в бюджет высоты меню на
@@ -1042,6 +1199,7 @@ export class App {
           const entry = quests.find((q) => q.quest.key === key);
           if (!entry) return;
           if (!this.store.claimWeeklyQuest(week, key, entry.done, WEEKLY_QUEST_REWARD_HINTS)) return;
+          track({ type: 'weekly_quest_claimed', key });
           entry.claimed = true;
           this.audio.play('star');
           render();
@@ -1264,6 +1422,9 @@ export class App {
       const yardStageBefore = yardMilestone(completedCampaignLevels(LEVELS, this.store.data));
       this.store.recordWeeklyEvent(currentWeekKey(), 'win', 1);
       if (finalStars === 3) this.store.recordWeeklyEvent(currentWeekKey(), 'perfect', 1);
+      this.questEvent('win');
+      if (finalStars === 3) this.questEvent('perfect');
+      if (endState.starCollected) this.questEvent('canister');
       const improved = this.store.recordResult(def.id, finalStars);
       const starsAfter = totalStars(this.store.data);
       const unlocked = newlyUnlocked(starsBefore, starsAfter);
@@ -1762,6 +1923,7 @@ export class App {
         this.audio.play(level.pieces[piece]?.kind === 'crate' ? 'crateSlide' : 'move');
         this.hideOnboardingHand();
         this.store.markTutorialSeen();
+        if (!endless && !challenge) this.questEvent('moves');
         if (res.starCollected) {
           this.audio.play('star');
           this.vibrate(25);
@@ -1816,6 +1978,23 @@ export class App {
           durationSeconds: Math.round(elapsedMs / 1000),
           hintUsed: attempt.usedHint
         });
+        if (!endless) {
+          // Факты «заданий дня», известные только здесь (внутри попытки):
+          // прошёл без подсказки и улучшил уже пройденный уровень.
+          if (!attempt.usedHint) this.questEvent('nohint');
+          if (!daily) {
+            const prevStars = this.store.starsOf(level.id);
+            const prevMoves = this.store.bestMovesOf(level.id);
+            if (prevStars > 0 && (starsFor(level, cur.moves, cur.starCollected) > prevStars || (prevMoves !== undefined && cur.moves < prevMoves))) {
+              this.questEvent('replay');
+            }
+          }
+          // Обучение: три базовых жеста показаны на уровнях 1–3 — первая победа
+          // на третьем закрывает воронку onboarding'а (см. FIRST_SESSION_DESIGN.md).
+          if (level.id === 3 && this.store.starsOf(3) === 0) {
+            track({ type: 'tutorial_completed', timeMs: Math.round(performance.now() - this.sessionStartedAt) });
+          }
+        }
         this.finishLevel(level, cur, daily, dailyDate, endless, playReplay);
       }
     };
@@ -1911,6 +2090,7 @@ export class App {
       const prev = undoStack.pop();
       if (!prev) return;
       attempt.usedUndo = true;
+      if (!endless && !challenge) this.questEvent('undo');
       redoStack.push(cur);
       cur = prev;
       bv.setState(prev);
@@ -1975,8 +2155,29 @@ export class App {
       skipBtn.disabled = true;
       bv.interactive = false;
       try {
-        const ok = await this.showRewardedFor('skip', level.id);
+        let ok = await this.showRewardedFor('skip', level.id);
+        let source: 'rewarded' | 'tokens' | 'free' = 'rewarded';
+        // Резерв на случай, когда ролик не показан (local-fallback, адблок, нет
+        // заполнения, оффлайн): раньше кнопка молча ничего не делала, и при строго
+        // линейной кампании игрок оказывался заперт на уровне без выхода.
+        // Честная лестница: 2 подсказки из копилки, а после шести рестартов дед
+        // подталкивает бесплатно — тупиков в прогрессии быть не должно.
+        if (!ok) {
+          const restarts = this.restartCounts.get(level.id) ?? 0;
+          if ((this.store.data.hintTokens ?? 0) >= SKIP_TOKEN_COST && this.spendHintTokens(SKIP_TOKEN_COST)) {
+            ok = true;
+            source = 'tokens';
+            this.toast(t('skip.paidTokens', { n: SKIP_TOKEN_COST }));
+          } else if (restarts >= SKIP_FREE_AFTER_RESTARTS) {
+            ok = true;
+            source = 'free';
+            this.toast(t('skip.grandpaPush'));
+          } else {
+            this.toast(t('skip.unavailable', { n: SKIP_FREE_AFTER_RESTARTS }));
+          }
+        }
         if (ok) {
+          track({ type: 'level_skipped', levelId: level.id, source, restarts: this.restartCounts.get(level.id) ?? 0 });
           finished = true;
           this.restartCounts.delete(level.id);
           this.store.recordResult(level.id, 1);
@@ -2278,6 +2479,10 @@ export class App {
     let weeklyCup = false;
     this.store.recordWeeklyEvent(currentWeekKey(), 'win', 1);
     if (stars === 3) this.store.recordWeeklyEvent(currentWeekKey(), 'perfect', 1);
+    this.questEvent('win');
+    if (stars === 3) this.questEvent('perfect');
+    if (endState.starCollected) this.questEvent('canister');
+    if (daily) this.questEvent('daily');
     if (daily) {
       const previousTrophies = weeklyTrophies(this.store.data.daily);
       const newDaily = advanceStreak(this.store.data.daily, dailyDate ?? this.dailyKey());

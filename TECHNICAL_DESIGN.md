@@ -2,7 +2,7 @@
 
 > **Обновлено (release-audit-findings):**
 > - `Platform.getLeaderboard`+`getMyRank` (2×2 = 4 запроса на открытие экрана) заменены одним `getLeaderboardSnapshot(board)` (2 запроса) + TTL-кэш `src/game/leaderboard-cache.ts` (45с, инвалидация по submit, in-flight dedupe).
-> - Тяжёлые BFS-solver-тесты (`levels-solver-*`, `elite`, `endless`, `boss`) вынесены в отдельный `npm run test:solver` (`vitest.solver.config.ts`, `pool: forks`, `singleFork`) — `dangerouslyIgnoreUnhandledErrors` убран из `vite.config.ts` целиком, unhandled errors снова валят прогон (проверяется `tests/unhandled-error-probe.test.ts`).
+> - Тяжёлые BFS-solver-тесты (`levels-solver-*`, `elite`, `endless`, `boss`, `ice`) вынесены в отдельный `npm run test:solver`: `solveAsync()` отдаёт event loop внутри BFS, а `scripts/run-solver-tests.mjs` запускает каждый файл отдельным процессом. `dangerouslyIgnoreUnhandledErrors` убран из `vite.config.ts` целиком, unhandled errors снова валят прогон (проверяется `tests/unhandled-error-probe.test.ts`).
 > - `src/platform/local-fallback.ts` — production-safe fallback, когда SDK не загрузился/упал на `init()` (`createPlatform()` в `src/platform/index.ts` больше не бросает наружу).
 > - `getPlayer({ scopes: false })` заменён на `getPlayer()` — `scopes` не документирован в актуальном SDK (yandex.com/dev/games/doc/en/sdk/sdk-player), актуальный опциональный параметр — `signed`.
 
@@ -64,7 +64,7 @@ e2e/           Playwright: загрузка, прохождение, undo, со�
 - Повторные касания во время анимации снапа игнорируются до её конца (<120 мс). Resize/поворот — пересчёт viewBox, состояние не теряется.
 
 ## Сохранения
-`SaveData` хранит звёзды, аудио, язык, скин, последний уровень, daily streak/недельные кубки и факт показа review. Mock — localStorage (`parkovka.save.v1`). Яндекс — `player.setData` с fallback на localStorage. Слияние берёт максимум звёзд/кубков и объединяет дни одной недели.
+`SaveData` v2 хранит звёзды, аудио, язык, скин, последний уровень, daily streak/недельные кубки, задания дня, даты/счётчик сессий и факт показа review. Сейвы v1 поднимаются явной lossless-миграцией. Mock — localStorage (`parkovka.save.v1`, имя ключа сохранено ради совместимости). Яндекс — `player.setData` с fallback на localStorage; частые записи коалесцируются в последний снимок и принудительно сбрасываются при `pagehide`/скрытии вкладки. Слияние берёт максимум звёзд/кубков и объединяет прогресс одного дня/недели.
 
 ## Слой Яндекс Игр (по актуальной документации, июль 2026)
 - Подключение `/sdk.js` (fallback `https://sdk.games.s3.yandex.net/sdk.js`), `YaGames.init()`.

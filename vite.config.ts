@@ -10,7 +10,17 @@ export default defineConfig({
     })
   ],
   build: {
-    assetsInlineLimit: 8192
+    assetsInlineLimit: 8192,
+    rollupOptions: {
+      output: {
+        // Три полных словаря локализации — крупный, почти неизменяемый модуль.
+        // Отдельный чанк убирает предупреждение >500 КБ у legacy entry и
+        // позволяет браузеру не скачивать словари заново при изменениях UI.
+        manualChunks(id) {
+          if (id.endsWith('/src/game/i18n.ts')) return 'i18n';
+        }
+      }
+    }
   },
   test: {
     // Тяжёлые BFS-solver-файлы (levels-solver-*, elite, endless, boss) гоняются
@@ -27,7 +37,8 @@ export default defineConfig({
       'tests/levels-solver-*.test.ts',
       'tests/elite.test.ts',
       'tests/endless.test.ts',
-      'tests/boss.test.ts'
+      'tests/boss.test.ts',
+      'tests/ice.test.ts'
     ],
     environment: 'node'
   }

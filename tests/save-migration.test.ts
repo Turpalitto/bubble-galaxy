@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { SAVE_MIGRATIONS, SAVE_VERSION, defaultSave, migrateSave, sanitizeSave } from '../src/game/save';
 
+const builtInV1Migration = SAVE_MIGRATIONS[1];
+
 describe('миграции сейва', () => {
   afterEach(() => {
-    delete SAVE_MIGRATIONS[1];
+    SAVE_MIGRATIONS[1] = builtInV1Migration;
     delete SAVE_MIGRATIONS[2];
   });
 
@@ -28,16 +30,15 @@ describe('миграции сейва', () => {
     expect(calls).toBe(0);
   });
 
-  it('старая версия с зарегистрированным шагом поднимается до целевой', () => {
-    // Репетиция bump до v2: шаг переносит данные и повышает версию.
-    SAVE_MIGRATIONS[1] = (raw) => ({ ...raw, hintTokens: 5, v: 2 });
-    const migrated = migrateSave(
-      { ...defaultSave(), stars: { '7': 2 }, langChosen: true },
-      2
-    ) as { v: number; hintTokens?: number; stars: Record<string, number> };
-    expect(migrated.v).toBe(2);
-    expect(migrated.hintTokens).toBe(5);
-    expect(migrated.stars).toEqual({ '7': 2 });
+  it('реальный сейв v1 мигрирует в v2 без потери прогресса', () => {
+    const migrated = sanitizeSave({
+      ...defaultSave(),
+      v: 1,
+      stars: { '7': 2 },
+      langChosen: true,
+      hintTokens: 5
+    });
+    expect(migrated).toMatchObject({ v: 2, stars: { '7': 2 }, langChosen: true, hintTokens: 5 });
   });
 
   it('цепочка шагов применяется по порядку до целевой версии', () => {
@@ -53,12 +54,12 @@ describe('миграции сейва', () => {
 
   it('отсутствующий шаг останавливает миграцию на достигнутой версии', () => {
     const migrated = migrateSave({ ...defaultSave(), stars: {}, v: 1 }, 3) as { v: number };
-    expect(migrated.v).toBe(1);
+    expect(migrated.v).toBe(2);
   });
 
   it('битый шаг (вернул мусор) не крашит — миграция останавливается на исходной версии', () => {
     SAVE_MIGRATIONS[1] = () => null as unknown as Record<string, unknown>;
-    const save = { ...defaultSave(), stars: { '3': 1 } };
+    const save = { ...defaultSave(), v: 1, stars: { '3': 1 } };
     const migrated = migrateSave(save, 2) as { v: number; stars: Record<string, number> };
     // Данные остаются в прежней версии нетронутыми: их отбросит проверка
     // версии в sanitizeSave, но потеря происходит явно, а не тихой порчей.

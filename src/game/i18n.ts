@@ -410,7 +410,29 @@ const RU: Dict = {
   'boss.share': 'Поделиться победой',
   'boss.shared': 'Рассказано!',
   'boss.shareText': 'Одолел босса «{boss}» в «Переполохе во дворе»! А ты справишься?',
-  'platform.fallbackNotice': 'Облачные функции временно недоступны. Прогресс сохраняется на устройстве.'
+  'platform.fallbackNotice': 'Облачные функции временно недоступны. Прогресс сохраняется на устройстве.',
+  'skip.paidTokens': 'Уровень пропущен за {n} подсказки',
+  'skip.grandpaPush': 'Дед подтолкнул: «Ладно, поезжай дальше!»',
+  'skip.unavailable': 'Ролик недоступен. Пропуск за 2 подсказки или бесплатно после {n} рестартов',
+  'quests.title': 'Задания дня',
+  'quests.button': 'Задания дня',
+  'quests.claim': 'Забрать',
+  'quests.claimed': 'Забрано',
+  'quests.allDone': 'Все задания дня выполнены — новые завтра!',
+  'quests.reward': '+{n} подсказка',
+  'quests.win2': 'Пройти 2 уровня',
+  'quests.win3': 'Пройти 3 уровня',
+  'quests.perfect1': 'Пройти уровень на ★★★',
+  'quests.perfect2': 'Пройти 2 уровня на ★★★',
+  'quests.canister2': 'Собрать 2 канистры',
+  'quests.nohint2': 'Пройти 2 уровня без подсказок',
+  'quests.replay1': 'Улучшить результат на пройденном уровне',
+  'quests.daily1': 'Пройти уровень дня',
+  'quests.moves20': 'Сделать 20 ходов',
+  'quests.undo1': 'Исправить ход кнопкой «отменить»',
+  'welcome.back': 'Дед соскучился: «{d} дней тебя не было!» Держи подсказку — и за руль.',
+  'reminder.title': 'Переполох во дворе',
+  'reminder.body': 'Дедов жигулёнок заскучал во дворе — загляни и не теряй серию 🔥'
 };
 
 const EN: Dict = {
@@ -813,7 +835,29 @@ const EN: Dict = {
   'boss.share': 'Share this victory',
   'boss.shared': 'Told everyone!',
   'boss.shareText': 'Beat the boss “{boss}” in Yard Havoc! Can you do it too?',
-  'platform.fallbackNotice': 'Cloud features are temporarily unavailable. Progress is saved on this device.'
+  'platform.fallbackNotice': 'Cloud features are temporarily unavailable. Progress is saved on this device.',
+  'skip.paidTokens': 'Level skipped for {n} hints',
+  'skip.grandpaPush': 'Grandpa gave a push: “Fine, drive on!”',
+  'skip.unavailable': 'No ad available. Skip for 2 hints, or free after {n} restarts',
+  'quests.title': 'Daily tasks',
+  'quests.button': 'Daily tasks',
+  'quests.claim': 'Claim',
+  'quests.claimed': 'Claimed',
+  'quests.allDone': 'All daily tasks done — new ones tomorrow!',
+  'quests.reward': '+{n} hint',
+  'quests.win2': 'Clear 2 levels',
+  'quests.win3': 'Clear 3 levels',
+  'quests.perfect1': 'Clear a level with ★★★',
+  'quests.perfect2': 'Clear 2 levels with ★★★',
+  'quests.canister2': 'Collect 2 canisters',
+  'quests.nohint2': 'Clear 2 levels without hints',
+  'quests.replay1': 'Improve your result on a cleared level',
+  'quests.daily1': 'Clear the daily level',
+  'quests.moves20': 'Make 20 moves',
+  'quests.undo1': 'Fix a move with “undo”',
+  'welcome.back': 'Grandpa missed you: “{d} days without you!” Here’s a hint — now get behind the wheel.',
+  'reminder.title': 'Yard Frenzy',
+  'reminder.body': 'Grandpa’s Lada is bored in the yard — drop by and keep your streak 🔥'
 };
 
 const TR: Dict = {
@@ -1216,7 +1260,29 @@ const TR: Dict = {
   'boss.share': 'Zaferi paylaş',
   'boss.shared': 'Herkese duyuruldu!',
   'boss.shareText': '«Bahçe Kargaşası»nda «{boss}» patronunu yendim! Sen de yapabilir misin?',
-  'platform.fallbackNotice': 'Bulut özellikleri geçici olarak kullanılamıyor. İlerleme bu cihazda saklanıyor.'
+  'platform.fallbackNotice': 'Bulut özellikleri geçici olarak kullanılamıyor. İlerleme bu cihazda saklanıyor.',
+  'skip.paidTokens': 'Bölüm {n} ipucu karşılığında atlandı',
+  'skip.grandpaPush': 'Dede itti: «Tamam, devam et!»',
+  'skip.unavailable': 'Reklam yok. 2 ipucuyla atla ya da {n} yeniden başlatmadan sonra ücretsiz',
+  'quests.title': 'Günün görevleri',
+  'quests.button': 'Günün görevleri',
+  'quests.claim': 'Al',
+  'quests.claimed': 'Alındı',
+  'quests.allDone': 'Günün tüm görevleri tamam — yenileri yarın!',
+  'quests.reward': '+{n} ipucu',
+  'quests.win2': '2 bölüm geç',
+  'quests.win3': '3 bölüm geç',
+  'quests.perfect1': 'Bir bölümü ★★★ ile geç',
+  'quests.perfect2': '2 bölümü ★★★ ile geç',
+  'quests.canister2': '2 bidon topla',
+  'quests.nohint2': 'İpucu kullanmadan 2 bölüm geç',
+  'quests.replay1': 'Geçilmiş bir bölümde sonucunu iyileştir',
+  'quests.daily1': 'Günün bölümünü geç',
+  'quests.moves20': '20 hamle yap',
+  'quests.undo1': 'Bir hamleyi «geri al» ile düzelt',
+  'welcome.back': 'Dede özledi: «{d} gündür yoksun!» Al bir ipucu — ve direksiyona geç.',
+  'reminder.title': 'Bahçede Kargaşa',
+  'reminder.body': 'Dedenin Lada’sı bahçede sıkıldı — uğra ve serini kaybetme 🔥'
 };
 
 /**

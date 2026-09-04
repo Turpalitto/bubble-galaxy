@@ -414,7 +414,10 @@ test.describe('Переполох во дворе', () => {
 
   test('ежедневный подарок выдаёт две подсказки, достижения открываются отдельно', async ({ page }) => {
     const errors = trackErrors(page);
-    await page.goto('/?mock=1&lang=ru');
+    // Базовую экономику подарка проверяем вне календарных событий: сезонный
+    // бонус (+1) тестируется отдельно и не должен делать этот сценарий
+    // зависимым от даты запуска CI.
+    await page.goto('/?mock=1&lang=ru&season=none');
     await page.getByTestId('menu-achievements').click();
     await expect(page.getByTestId('screen-achievements')).toBeVisible();
     await expect(page.getByTestId('achievement-firstRide')).not.toHaveClass(/done/);

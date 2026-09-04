@@ -146,6 +146,38 @@ describe('сохранения', () => {
     expect(mergeSave(a, b)).toMatchObject({ hintTokens: 3, lastGift: '2026-07-20' });
   });
 
+  it('санитизирует и сливает задания дня и метрики возврата', () => {
+    const local = sanitizeSave({
+      ...defaultSave(),
+      quests: { day: '2026-09-04', progress: { win: 2 }, claimed: ['win2'] },
+      firstLaunch: '2026-08-01',
+      lastSeen: '2026-09-03',
+      sessions: 7
+    });
+    expect(local).not.toBeNull();
+    const merged = mergeSave(local!, {
+      ...defaultSave(),
+      quests: { day: '2026-09-04', progress: { win: 3, undo: 1 }, claimed: ['undo1'] },
+      firstLaunch: '2026-08-10',
+      lastSeen: '2026-09-04',
+      sessions: 8
+    });
+    expect(merged.quests).toEqual({
+      day: '2026-09-04',
+      progress: { win: 3, undo: 1 },
+      claimed: ['win2', 'undo1']
+    });
+    expect(merged).toMatchObject({ firstLaunch: '2026-08-01', lastSeen: '2026-09-04', sessions: 8 });
+  });
+
+  it('отмечает сессии и считает календарные дни без повторного подарка в тот же день', () => {
+    const platform = { saveData: async () => undefined } as unknown as Platform;
+    const store = new SaveStore(platform, defaultSave());
+    expect(store.beginSession('2026-09-01')).toEqual({ sessionNumber: 1, daysSinceFirst: 0 });
+    expect(store.beginSession('2026-09-04')).toEqual({ sessionNumber: 2, daysSinceFirst: 3, daysSinceLast: 3 });
+    expect(store.beginSession('2026-09-04')).toEqual({ sessionNumber: 3, daysSinceFirst: 3, daysSinceLast: 0 });
+  });
+
   it('добавляет подсказки с потолком 99 и игнорирует мусор', () => {
     const platform = { saveData: async () => undefined } as unknown as Platform;
     const store = new SaveStore(platform, defaultSave());

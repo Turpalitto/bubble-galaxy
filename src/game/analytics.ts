@@ -14,7 +14,24 @@
 export type RewardedContext = 'hint' | 'skip' | 'endless-revive';
 
 export type GameAnalyticsEvent =
-  | { type: 'game_start' }
+  /**
+   * sessionNumber — порядковый номер сессии на этом сейве (1 = первый запуск);
+   * daysSinceFirstLaunch / daysSinceLastSession — календарные дни, из них
+   * считаются D1/D7/D30-возвраты без каких-либо идентификаторов игрока.
+   * Все три поля отсутствуют, если сейва ещё нет (самый первый старт).
+   */
+  | { type: 'game_start'; sessionNumber?: number; daysSinceFirstLaunch?: number; daysSinceLastSession?: number }
+  /** Игрок вернулся после перерыва ≥ N дней — дед встретил и подарил подсказку. */
+  | { type: 'welcome_back'; daysAway: number }
+  /** Обучение считается пройденным на первой победе на уровне 3 (все три базовых жеста показаны). */
+  | { type: 'tutorial_completed'; timeMs: number }
+  /** Пропуск уровня: ролик, оплата подсказками или бесплатный «толчок деда» после серии рестартов. */
+  | { type: 'level_skipped'; levelId: number; source: 'rewarded' | 'tokens' | 'free'; restarts: number }
+  | { type: 'gift_claimed'; hints: number }
+  | { type: 'daily_quest_completed'; key: string }
+  | { type: 'daily_quest_claimed'; key: string; hints: number }
+  | { type: 'weekly_quest_claimed'; key: string }
+  | { type: 'achievement_unlocked'; key: string }
   /** sessionLevelNumber — какой по счёту уровень запущен за сессию (1-based). */
   | { type: 'level_start'; levelId: number; sessionLevelNumber: number; attemptNumber: number }
   | { type: 'first_move'; levelId: number; timeMs: number }
