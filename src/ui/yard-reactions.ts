@@ -20,29 +20,11 @@ import {
   textKeyOf
 } from '../game/grandpa';
 
-const MOOD_FACE: Record<GrandpaMood, string> = {
-  neutral: '<path class="gp-mouth" d="M20 34 q6 3 12 0"/>',
-  happy: '<path class="gp-mouth" d="M19 33 q7 7 14 0"/>',
-  surprised: '<ellipse class="gp-mouth" cx="26" cy="35" rx="4" ry="5"/>',
-  grumpy: '<path class="gp-mouth" d="M20 36 q6 -4 12 0"/>',
-  thinking: '<path class="gp-mouth" d="M21 35 h9"/>',
-  celebrating: '<path class="gp-mouth" d="M18 32 q8 9 16 0"/>',
-  pointing: '<path class="gp-mouth" d="M20 34 q6 4 12 0"/>'
-};
+const GRANDPA_ART_URL = `${import.meta.env.BASE_URL}art/grandpa-menu-v1.webp`;
 
-/** SVG-портрет деда: кепка, брови, усы, рот меняется по настроению. */
+/** Тот же дед, что и в меню: на поле больше нет плоской пиктограммы-двойника. */
 function grandpaPortrait(mood: GrandpaMood): string {
-  const brow = mood === 'surprised' ? -3 : mood === 'grumpy' ? 2 : 0;
-  return `<svg viewBox="0 0 52 52" class="gp-face gp-${mood}" aria-hidden="true">
-    <circle cx="26" cy="28" r="18" class="gp-skin"/>
-    <path d="M8 22 q18 -14 36 0 l-2 -6 q-16 -9 -32 0 Z" class="gp-cap"/>
-    <rect x="6" y="20" width="40" height="5" rx="2" class="gp-cap"/>
-    <g class="gp-brows" transform="translate(0 ${brow})"><rect x="16" y="23" width="8" height="3" rx="1.5"/><rect x="28" y="23" width="8" height="3" rx="1.5"/></g>
-    <circle class="gp-eye" cx="21" cy="29" r="2"/><circle class="gp-eye" cx="33" cy="29" r="2"/>
-    ${MOOD_FACE[mood]}
-    <path d="M14 38 q12 8 24 0 q-4 8 -12 8 q-8 0 -12 -8Z" class="gp-beard"/>
-    <path d="M16 33 q10 6 20 0" class="gp-mustache"/>
-  </svg>`;
+  return `<img class="gp-face gp-${mood}" src="${GRANDPA_ART_URL}" alt="" aria-hidden="true" />`;
 }
 
 export interface YardDirectorOptions {

@@ -151,27 +151,20 @@ test.describe('Посткампанийное меню: граничные мо�
     await expect(page.getByTestId('screen-elite')).toBeVisible();
   });
 
-  test('дом-ориентир двора виден в портретной колонке', async ({ page }) => {
-    // Регрессия: на портрете slice-обрезка viewBox уводила дом (x 52–282 из 900)
-    // целиком за левую границу кадра; портретная композиция возвращает его в кадр.
+  test('детальный фон и живой прогресс двора видны в портретной колонке', async ({ page }) => {
     await seedCampaignDone(page);
     for (const viewport of VIEWPORTS) {
       await page.setViewportSize(viewport);
       await page.goto('/?mock=1&lang=ru&daytime=day');
-      const house = await page.locator('.yard-house').boundingBox();
-      expect(house, `дом отсутствует на ${viewport.width}x${viewport.height}`).not.toBeNull();
-      const visibleWidth = Math.min(house!.x + house!.width, viewport.width) - Math.max(house!.x, 0);
-      expect(visibleWidth, `дом за кадром на ${viewport.width}x${viewport.height}`).toBeGreaterThanOrEqual(100);
-      expect(house!.y).toBeGreaterThanOrEqual(-1);
-      // машинка-жигулёнок тоже в кадре
-      const car = await page.locator("[data-tap='honk']").boundingBox();
-      expect(car).not.toBeNull();
-      expect(car!.x).toBeGreaterThanOrEqual(-1);
-      expect(car!.x + car!.width).toBeLessThanOrEqual(viewport.width + 1);
+      await expect(page.locator('.menu-yard-art')).toBeVisible();
+      await expect(page.locator('.yard-live-scene')).toBeVisible();
+      await expect(page.locator('.yard-live-scene .yard-svg')).toHaveAttribute('data-yard-stage', '10');
+      await expect(page.locator('.yard-live-label')).toHaveText('Двор 10/10');
+      expect(await overlapArea(page, '.yard-live-scene', '[data-testid="menu-play"]')).toBe(0);
     }
   });
 
-  test('метапанель сохраняет все четыре функции и гараж после кампании', async ({ page }) => {
+  test('метапанель явно называет все пять функций и гараж показывает автомобиль', async ({ page }) => {
     await seedCampaignDone(page);
     await page.setViewportSize({ width: 360, height: 640 });
     await page.goto('/?mock=1&lang=ru&daytime=day');
@@ -179,8 +172,10 @@ test.describe('Посткампанийное меню: граничные мо�
     await expect(page.getByTestId('menu-leaderboard')).toBeVisible();
     await expect(page.getByTestId('menu-achievements')).toBeVisible();
     await expect(page.getByTestId('menu-weekly')).toBeVisible();
+    await expect(page.getByTestId('menu-quests')).toContainText('Сегодня');
     await page.getByTestId('menu-garage').click();
     await expect(page.getByTestId('garage-overlay')).toBeVisible();
+    await expect(page.getByTestId('garage-preview')).toBeVisible();
     await expect(page.getByTestId('skin-9')).toBeEnabled();
   });
 });

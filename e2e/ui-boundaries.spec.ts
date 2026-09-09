@@ -113,7 +113,8 @@ test.describe('UI boundaries', () => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/?mock=1&lang=ru&daytime=day');
     await page.getByTestId('menu-play').click();
-    await expect(page.getByTestId('grandpa-portrait')).toBeVisible();
+    await expect(page.getByTestId('grandpa')).toHaveCount(1);
+    await expect(page.getByTestId('grandpa-portrait')).toBeHidden();
 
     expect(
       await overlapArea(page, '[data-testid="grandpa-portrait"]', '[data-testid="btn-undo"]')
@@ -140,5 +141,18 @@ test.describe('UI boundaries', () => {
       overlay: Number(getComputedStyle(document.querySelector<HTMLElement>('.overlay-slot')!).zIndex)
     }));
     expect(layerOrder.grandpa).toBeLessThan(layerOrder.overlay);
+  });
+
+  test('landscape gives the puzzle most of the height without covering it with onboarding text', async ({ page }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await page.goto('/?mock=1&qaTools=1&qa=1&lang=ru&daytime=day');
+    await page.getByTestId('menu-levels').click();
+    await page.getByTestId('level-card-3').click();
+    await expect(page.getByTestId('hint-toast')).toBeVisible();
+
+    const board = await page.getByTestId('board').boundingBox();
+    expect(board).not.toBeNull();
+    expect(board!.height).toBeGreaterThanOrEqual(300);
+    expect(await overlapArea(page, '[data-testid="hint-toast"]', '[data-testid="board"]')).toBe(0);
   });
 });

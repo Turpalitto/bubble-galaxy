@@ -95,7 +95,7 @@ import { queryParam } from '../query';
 import { BoardView } from './board';
 import { YardDirector } from './yard-reactions';
 import { showCampaignEnding } from './campaign-ending';
-import { TARGET_SKINS, setTargetSkin } from './sprites';
+import { TARGET_SKINS, setTargetSkin, targetCarPreview } from './sprites';
 import { levelThumbnail } from './thumbnail';
 import { yardSVG } from './yard';
 import { confettiHtml } from './confetti';
@@ -263,6 +263,15 @@ export class App {
     this.toggles = new SettingsToggles({ audio, store, vibrate: (pattern) => this.vibrate(pattern) });
     this.leaderboardCache = createLeaderboardCache((board) => this.platform.getLeaderboardSnapshot(board));
     this.root = document.getElementById('app')!;
+    const assetUrl = (path: string) => new URL(`${import.meta.env.BASE_URL}${path}`, document.baseURI).href;
+    this.root.style.setProperty(
+      '--yard-art-url',
+      `url("${assetUrl('art/yard-menu-evening-v1.webp')}")`
+    );
+    this.root.style.setProperty(
+      '--board-ground-url',
+      `url("${assetUrl('art/board/yard-ground-v1.webp')}")`
+    );
     this.tv = new TVNavigator({
       root: this.root,
       overlaySlot: () => this.q('.overlay-slot'),
@@ -614,6 +623,7 @@ export class App {
       <div class="dialog garage-dialog">
         <h2>${t('garage.title')}</h2>
         <div class="dialog-sub" data-testid="garage-selected">${t(selectedSkin.nameKey)}</div>
+        <div class="garage-preview" data-testid="garage-preview">${targetCarPreview(selectedIndex)}</div>
         <div class="skin-row garage-grid" data-testid="skin-row">${visibleSkins
           .map(({ skin: s, index: i }) => {
             const unlockedSkin = s.elite ? campaignDone : total >= s.unlockStars;
@@ -741,7 +751,13 @@ export class App {
     const campaignPercent = Math.round((completed / LEVELS.length) * 100);
     this.root.innerHTML = `
       <div class="screen menu-screen" data-testid="screen-menu">
-        <div class="yard-bg">${yardSVG(unlockedUpgrades(total), trophies, season?.id, yardStage, this.store.data.endlessBest ?? 0)}</div>
+        <div class="yard-bg">
+          <img class="menu-yard-art" src="${import.meta.env.BASE_URL}art/yard-menu-evening-v1.webp" alt="" aria-hidden="true" />
+          <div class="yard-live-scene" role="img" aria-label="${t('menu.yardProgress', { n: yardStage, m: 10 })}">
+            ${yardSVG(unlockedUpgrades(total), trophies, season?.id, yardStage, this.store.data.endlessBest ?? 0)}
+            <span class="yard-live-label">${t('menu.yardProgress', { n: yardStage, m: 10 })}</span>
+          </div>
+        </div>
         <div class="menu-hud">
           <span class="hud-chip stars-total" data-testid="stars-total">★ ${total} / ${max}</span>
           <span class="hud-chip hud-hints" data-testid="menu-hint-tokens">💡 ${this.store.data.hintTokens ?? 0}</span>
@@ -759,8 +775,13 @@ export class App {
             }
             <h1 class="game-title"><span>${t('game.titleTop')}</span><span>${t('game.titleBottom')}</span></h1>
           </div>
+          <div class="menu-character" aria-hidden="true">
+            <img src="${import.meta.env.BASE_URL}art/grandpa-menu-v1.webp" alt="" />
+            <div class="menu-character-bubble">${t('menu.grandpaPrompt')}</div>
+          </div>
           <div class="menu-panel">
           <div class="menu-progress-block">
+            <div class="menu-panel-chapter">${campaignDone ? t('menu.campaignDone') : t(`chapter.${chapterIndex}`)}</div>
             <div class="menu-progress-line">
               <span data-testid="menu-campaign-line">${
                 campaignDone
@@ -803,6 +824,7 @@ export class App {
               }
             </div>
             <div class="menu-events" data-testid="menu-events" aria-label="${t('menu.events')}">
+              <div class="menu-events-label">${t('menu.events')}</div>
               <div class="event-cards">
                 <button class="event-card btn-daily" data-testid="menu-daily">
                   <span class="event-card-title">🔥 ${t('daily.button')}${
@@ -828,21 +850,21 @@ export class App {
                 </button>
               </div>
               <div class="menu-meta-row">
-                <button class="btn" data-testid="menu-leaderboard" aria-label="${t(
+                <button class="btn meta-action" data-testid="menu-leaderboard" aria-label="${t(
                   'menu.leaderboard'
-                )}" title="${t('menu.leaderboard')}">🏆</button>
-                <button class="btn" data-testid="menu-achievements" aria-label="${t(
+                )}" title="${t('menu.leaderboard')}"><span>🏆</span><small>${t('menu.leaderboardShort')}</small></button>
+                <button class="btn meta-action" data-testid="menu-achievements" aria-label="${t(
                   'achievements.title'
-                )}">🏅 ${achievementCount}/${ACHIEVEMENTS.length}</button>
-                <button class="btn${questsReady > 0 ? ' has-ready' : ''}" data-testid="menu-quests" aria-label="${t(
+                )}"><span>🏅 ${achievementCount}/${ACHIEVEMENTS.length}</span><small>${t('menu.achievementsShort')}</small></button>
+                <button class="btn meta-action${questsReady > 0 ? ' has-ready' : ''}" data-testid="menu-quests" aria-label="${t(
                   'quests.title'
-                )}" title="${t('quests.title')}">📋 ${questsClaimed}/${dailyQuests.length}</button>
-                <button class="btn${weeklyQuests.some((q) => q.done && !q.claimed) ? ' has-ready' : ''}" data-testid="menu-weekly" aria-label="${t(
+                )}" title="${t('quests.title')}"><span>📋 ${questsReady > 0 ? `+${questsReady}` : `${questsClaimed}/${dailyQuests.length}`}</span><small>${t('menu.questsShort')}</small></button>
+                <button class="btn meta-action${weeklyQuests.some((q) => q.done && !q.claimed) ? ' has-ready' : ''}" data-testid="menu-weekly" aria-label="${t(
                   'weekly.title'
-                )}">🎯 ${weeklyQuests.filter((q) => q.claimed).length}/${weeklyQuests.length}</button>
-                <button class="btn" data-testid="menu-garage" aria-label="${t('menu.garage')}" title="${t(
+                )}"><span>🎯 ${weeklyQuests.filter((q) => q.claimed).length}/${weeklyQuests.length}</span><small>${t('menu.weeklyShort')}</small></button>
+                <button class="btn meta-action" data-testid="menu-garage" aria-label="${t('menu.garage')}" title="${t(
                   'menu.garage'
-                )}">🚗 ${unlockedSkinCount}/${TARGET_SKINS.length}</button>
+                )}"><span>🚗 ${unlockedSkinCount}/${TARGET_SKINS.length}</span><small>${t('menu.garage')}</small></button>
               </div>
             </div>
           </div>
@@ -1121,7 +1143,7 @@ export class App {
                 <span class="weekly-quest-label">${t(`quests.${quest.key}`)} · ${progress}/${quest.goal}</span>
                 <button class="btn btn-small weekly-claim" data-testid="quest-claim-${quest.key}"
                   data-quest="${quest.key}" ${done && !claimed ? '' : 'disabled'}>${
-                  claimed ? `✓ ${t('quests.claimed')}` : `💡 ${t('quests.claim')}`
+                  claimed ? `✓ ${t('quests.claimed')}` : t('quests.claimReward', { n: DAILY_QUEST_REWARD_HINTS })
                 }</button>
               </div>`
               )
@@ -1142,7 +1164,8 @@ export class App {
           render();
           const btn = this.root.querySelector<HTMLElement>('[data-testid=menu-quests]');
           if (btn) {
-            btn.textContent = `📋 ${quests.filter((q) => q.claimed).length}/${quests.length}`;
+            const ready = quests.filter((q) => q.done && !q.claimed).length;
+            btn.innerHTML = `<span>📋 ${ready > 0 ? `+${ready}` : `${quests.filter((q) => q.claimed).length}/${quests.length}`}</span><small>${t('menu.questsShort')}</small>`;
             btn.classList.toggle('has-ready', quests.some((q) => q.done && !q.claimed));
           }
           const chip = this.root.querySelector<HTMLElement>('[data-testid=menu-hint-tokens]');
@@ -1185,7 +1208,7 @@ export class App {
                 <span class="weekly-quest-label">${t(`weekly.${quest.key}`)} · ${progress}/${quest.goal}</span>
                 <button class="btn btn-small weekly-claim" data-testid="weekly-claim-${quest.key}"
                   data-quest="${quest.key}" ${done && !claimed ? '' : 'disabled'}>${
-                  claimed ? `✓ ${t('weekly.claimed')}` : `💡 ${t('weekly.claim')}`
+                  claimed ? `✓ ${t('weekly.claimed')}` : t('weekly.claimReward', { n: WEEKLY_QUEST_REWARD_HINTS })
                 }</button>
               </div>`
               )
@@ -1783,6 +1806,13 @@ export class App {
             <div class="hud-moves"><span class="hud-moves-label">${t('hud.moves')}</span> <b data-testid="hud-moves">0</b><span class="hud-par" data-testid="hud-goal" title="${escapeHTML(goalAria)}" aria-label="${escapeHTML(goalAria)}">${goalText}</span></div>
           </div>
         </div>
+        ${
+          daily && level.mechanics.length > 0
+            ? `<div class="daily-mechanics" data-testid="daily-mechanics"><strong>${t('daily.mechanics')}</strong>${level.mechanics
+                .map((mechanic) => `<span>${t(`mechanic.${mechanic}`)}</span>`)
+                .join('')}</div>`
+            : ''
+        }
         <div class="board-host" data-testid="board-host"></div>
         <div class="hud hud-bottom">
           <button class="btn" data-testid="btn-undo" disabled ${blocksUndo(modifier) ? 'hidden' : ''}>${t('btn.undo')}</button>
@@ -1877,8 +1907,9 @@ export class App {
     const bv = new BoardView(host, level, cur, {
       onPick: (piece) => {
         this.audio.play('pick');
-        if (level.pieces[piece]?.kind === 'tractor') this.audio.play('tractorStart');
-        this.audio.engineStart();
+        const tractor = level.pieces[piece]?.kind === 'tractor';
+        if (tractor) this.audio.play('tractorStart');
+        this.audio.engineStart(tractor ? 'tractor' : 'vehicle');
         this.hideOnboardingHand();
       },
       onRelease: () => this.audio.engineStop(),

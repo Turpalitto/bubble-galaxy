@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "protocol_version": "1.0",
+  "updated_at": "2026-09-07T18:40:50Z",
+  "nodes": [
+    {
+      "id": "project",
+      "kind": "project",
+      "name": "perepoloh-vo-dvore",
+      "managed": true
+    },
+    {
+      "id": "stack:node-js",
+      "kind": "stack",
+      "name": "Node.js",
+      "managed": true
+    },
+    {
+      "id": "stack:typescript",
+      "kind": "stack",
+      "name": "TypeScript",
+      "managed": true
+    },
+    {
+      "id": "module:src",
+      "kind": "module",
+      "name": "src",
+      "path": "src",
+      "managed": true
+    }
+  ],
+  "edges": [
+    {
+      "source": "project",
+      "target": "module:src",
+      "type": "contains"
+    },
+    {
+      "source": "project",
+      "target": "stack:node-js",
+      "type": "uses"
+    },
+    {
+      "source": "project",
+      "target": "stack:typescript",
+      "type": "uses"
+    }
+  ]
+}

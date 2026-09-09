@@ -370,6 +370,8 @@ test.describe('Переполох во дворе', () => {
     await page.getByTestId('menu-daily').click();
     await expect(page.getByTestId('board')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.hud-level')).toContainText('Уровень дня');
+    await expect(page.getByTestId('daily-mechanics')).toBeVisible();
+    await expect(page.getByTestId('daily-mechanics')).toContainText('на поле');
     expect(errors).toEqual([]);
   });
 
@@ -378,6 +380,7 @@ test.describe('Переполох во дворе', () => {
     await page.goto('/?mock=1&lang=ru');
     await page.getByTestId('menu-garage').click();
     await expect(page.getByTestId('garage-overlay')).toBeVisible();
+    await expect(page.getByTestId('garage-preview')).toBeVisible();
     await expect(page.getByTestId('skin-0')).toBeEnabled();
     await expect(page.getByTestId('skin-1')).toBeDisabled(); // нужно ★15
     await expect(page.getByTestId('skin-0')).toHaveClass(/selected/);
@@ -432,10 +435,10 @@ test.describe('Переполох во дворе', () => {
     // Уровень 1 обучающий — подсказка на нём бесплатна и не тратит выданный
     // токен (осознанно, полировка первой сессии): токен остаётся в копилке.
     await page.getByTestId('menu-play').click();
-    await expect(page.getByTestId('btn-hint')).toContainText('осталось бесплатных: 3');
+    await expect(page.getByTestId('btn-hint')).toContainText('бесплатно: 3');
     await page.getByTestId('btn-hint').click();
     await expect(page.locator('.hint-chevron').first()).toBeVisible();
-    await expect(page.getByTestId('btn-hint')).toContainText('осталось бесплатных: 2');
+    await expect(page.getByTestId('btn-hint')).toContainText('бесплатно: 2');
     await expect(page.getByTestId('mock-ad')).toHaveCount(0);
     const save = await page.evaluate(() => JSON.parse(localStorage.getItem('parkovka.save.v1') ?? '{}'));
     expect(save.hintTokens).toBe(2); // токен из подарка не потрачен на обучающем уровне
@@ -1147,7 +1150,7 @@ test.describe('Первая сессия: онбординг, hint без ток
     });
     await page.goto('/?mock=1&lang=ru');
     await page.getByTestId('menu-play').click();
-    await expect(page.getByTestId('btn-hint')).toContainText('осталось бесплатных: 3');
+    await expect(page.getByTestId('btn-hint')).toContainText('бесплатно: 3');
     await page.getByTestId('btn-hint').click();
     await page.waitForTimeout(300);
     const save = await page.evaluate(() => JSON.parse(localStorage.getItem('parkovka.save.v1') ?? '{}'));

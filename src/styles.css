@@ -178,6 +178,9 @@ html.high-contrast .levels-grid {
   height: 100%;
   display: block;
 }
+.menu-yard-art {
+  display: none;
+}
 .yard-sky,
 .yard-sun,
 .yard-moon,
@@ -332,6 +335,9 @@ html.high-contrast .levels-grid {
     rgba(61, 44, 30, 0.52) 100%
   );
 }
+.menu-character {
+  display: none;
+}
 .menu-chapter {
   background: var(--sun);
   color: #5d4019;
@@ -380,6 +386,10 @@ html.high-contrast .levels-grid {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.menu-panel-chapter,
+.menu-events-label {
+  display: none;
 }
 .menu-progress-line {
   display: flex;
@@ -868,9 +878,9 @@ html.high-contrast .levels-grid {
 /* ---------- выбор уровня ---------- */
 
 .levels-screen {
-  background:
-    radial-gradient(circle at 20% 10%, rgba(255, 247, 230, 0.14), transparent 45%),
-    var(--grass);
+  background-image: var(--yard-art-url);
+  background-position: center;
+  background-size: cover;
   gap: 10px;
 }
 .panel-top {
@@ -878,14 +888,19 @@ html.high-contrast .levels-grid {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px 4px;
+  margin: 12px 14px 0;
+  padding: 10px 12px;
+  border: 2px solid rgba(105, 72, 31, 0.34);
+  border-radius: 20px;
+  background: rgba(255, 247, 230, 0.94);
+  box-shadow: 0 5px 0 rgba(61, 44, 30, 0.32), 0 12px 28px rgba(61, 44, 30, 0.18);
 }
 .panel-top h2 {
   margin: 0;
-  color: var(--cream);
+  color: var(--ink);
   font-size: 26px;
   font-weight: 900;
-  text-shadow: 0 3px 0 rgba(61, 44, 30, 0.4);
+  text-shadow: none;
 }
 .panel-top .stars-total {
   background: rgba(61, 44, 30, 0.55);
@@ -912,8 +927,14 @@ html.high-contrast .levels-grid {
   gap: 14px;
   justify-content: center;
   align-content: start;
-  padding: 14px;
+  margin: 0 14px 14px;
+  padding: 18px;
   overflow-y: auto;
+  border: 2px solid rgba(105, 72, 31, 0.28);
+  border-radius: 24px;
+  background: rgba(66, 48, 28, 0.64);
+  box-shadow: 0 12px 32px rgba(42, 25, 8, 0.24);
+  backdrop-filter: blur(7px);
 }
 .chapter-header {
   grid-column: 1 / -1;
@@ -961,8 +982,9 @@ html.high-contrast .levels-grid {
   border: none;
   aspect-ratio: 1;
   border-radius: 20px;
-  background: var(--cream);
-  box-shadow: 0 5px 0 rgba(61, 44, 30, 0.35);
+  border: 2px solid rgba(125, 82, 39, 0.28);
+  background: rgba(255, 247, 230, 0.96);
+  box-shadow: 0 5px 0 rgba(61, 44, 30, 0.42), 0 10px 18px rgba(61, 44, 30, 0.16);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -992,7 +1014,8 @@ html.high-contrast .levels-grid {
   width: 74%;
   aspect-ratio: 1;
   border-radius: 10px;
-  box-shadow: 0 2px 0 rgba(61, 44, 30, 0.25);
+  border: 2px solid rgba(125, 82, 39, 0.28);
+  box-shadow: 0 3px 0 rgba(61, 44, 30, 0.3), 0 6px 10px rgba(61, 44, 30, 0.14);
 }
 .level-stars .star {
   color: #d8c9a8;
@@ -1027,8 +1050,10 @@ html.high-contrast .levels-grid {
 
 .game-screen {
   background:
-    radial-gradient(circle at 80% 0%, rgba(255, 247, 230, 0.12), transparent 40%),
-    var(--grass);
+    radial-gradient(circle at 50% 44%, rgba(255, 236, 174, 0.08), transparent 48%),
+    linear-gradient(rgba(55, 76, 33, 0.48), rgba(39, 61, 28, 0.64)),
+    var(--yard-art-url, var(--board-ground-url, var(--grass))) center 58% / cover no-repeat;
+  box-shadow: inset 0 0 80px rgba(35, 53, 21, 0.24);
 }
 .hud {
   display: flex;
@@ -1176,7 +1201,7 @@ html.high-contrast .levels-grid {
   flex-shrink: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-line;
 }
 .board-host {
   flex: 1;
@@ -1217,6 +1242,16 @@ html.high-contrast .levels-grid {
 }
 .piece.kind-target .art {
   filter: drop-shadow(0 0 3px rgba(246, 196, 69, 0.65));
+}
+.piece .vehicle-art {
+  pointer-events: none;
+}
+.board-ground-art,
+.chicken-art {
+  pointer-events: none;
+}
+.layer-fence {
+  filter: drop-shadow(0 5px 3px rgba(55, 36, 18, 0.28));
 }
 .piece .mid.enter {
   animation: piece-enter 0.4s cubic-bezier(0.34, 1.45, 0.64, 1) backwards;
@@ -2137,6 +2172,42 @@ html[data-daytime='night'] .yard-lamp-light {
   background: var(--sun);
 }
 
+/* Общая сцена для вторичных экранов: они больше не переключаются в плоскую
+   зелёную «служебную» тему, а остаются в том же тёплом дворе. */
+.leaderboard-screen,
+.achievements-screen,
+.elite-screen,
+.ending-screen,
+.endless-loading {
+  background-image: var(--yard-art-url);
+  background-position: center;
+  background-size: cover;
+}
+.leaderboard-content,
+.achievements-grid {
+  margin: 0 14px 14px;
+  border: 2px solid rgba(105, 72, 31, 0.28);
+  border-radius: 24px;
+  background: rgba(66, 48, 28, 0.62);
+  box-shadow: 0 12px 32px rgba(42, 25, 8, 0.24);
+  backdrop-filter: blur(7px);
+}
+.leaderboard-board,
+.achievement-card,
+.dialog,
+.elite-weekly-card,
+.elite-status {
+  border: 2px solid rgba(125, 82, 39, 0.28);
+  box-shadow: 0 5px 0 rgba(61, 44, 30, 0.34), 0 12px 24px rgba(61, 44, 30, 0.15);
+}
+.panel-top h2,
+.chapter-header,
+.game-title,
+.dialog h2,
+.level-num {
+  font-family: 'Arial Rounded MT Bold', 'Trebuchet MS', system-ui, sans-serif;
+}
+
 /* ---------- пасхалка: 100% прохождение ---------- */
 
 .win-master {
@@ -2488,6 +2559,303 @@ html[data-daytime='night'] .yard-lamp-light {
     max-height: 82vh;
   }
 }
+
+/* На планшете и десктопе меню использует цельный иллюстративный двор.
+   Компактный SVG остаётся для телефона и TV, где важны его живая раскладка
+   и прогресс-объекты. */
+@media (min-width: 700px) and (min-height: 701px) {
+  #app:not(.tv-mode) .menu-screen .menu-yard-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+  }
+  #app:not(.tv-mode) .menu-screen .yard-svg {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* Узкая панель предпросмотра: дед остаётся виден компактным портретом над
+   нижней панелью, а заголовок освобождает ему левый край. */
+@media (min-width: 700px) and (max-width: 1099px) and (min-height: 701px) {
+  #app:not(.tv-mode) .menu-ui {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  #app:not(.tv-mode) .menu-panel {
+    grid-area: 2 / 1;
+  }
+  #app:not(.tv-mode) .menu-character {
+    position: relative;
+    grid-area: 1 / 1;
+    align-self: end;
+    margin-left: 1.5%;
+    z-index: 2;
+    display: block;
+    width: min(31vw, 250px);
+    height: min(38vh, 350px);
+    pointer-events: none;
+  }
+  #app:not(.tv-mode) .menu-character img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: left bottom;
+    filter: drop-shadow(0 12px 18px rgba(43, 27, 9, 0.3));
+  }
+  #app:not(.tv-mode) .menu-character-bubble {
+    display: none;
+  }
+  #app:not(.tv-mode) .menu-hero {
+    grid-area: 1 / 1;
+    align-self: end;
+    align-items: flex-end;
+    padding-left: min(30vw, 260px);
+    padding-right: 22px;
+  }
+  #app:not(.tv-mode) .game-title {
+    align-items: flex-end;
+    font-size: clamp(36px, 6.8vw, 56px);
+  }
+}
+
+.board-object-art { pointer-events: none; }
+.wall .board-object-art,
+.piece.kind-crate .board-object-art {
+  filter: drop-shadow(0 5px 4px rgba(55, 36, 18, 0.28));
+}
+.gp-face.gp-happy { filter: saturate(1.14) brightness(1.06); transform: translateY(-2px) scale(1.03); }
+.gp-face.gp-celebrating { filter: saturate(1.3) brightness(1.1); transform: translateY(-4px) rotate(-2deg) scale(1.05); }
+.gp-face.gp-grumpy { filter: saturate(0.72) brightness(0.88); object-position: 54% 0; }
+@media (prefers-reduced-motion: reduce) {
+  .gp-face.gp-happy,
+  .gp-face.gp-celebrating,
+  .gp-face.gp-grumpy { transform: none; }
+}
+
+/*
+ * Десктопное меню «Совет деда»: выбранный сценический макет использует всю
+ * ширину, но только там, где высоты достаточно для кнопок. Низкий landscape
+ * остаётся в отдельной компактной раскладке ниже.
+ */
+@media (min-width: 1100px) and (min-height: 701px) {
+  #app:not(.tv-mode) .menu-screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  #app:not(.tv-mode) .menu-screen .yard-bg {
+    inset: 0;
+  }
+  #app:not(.tv-mode) .menu-screen .yard-svg {
+    filter: saturate(0.92) sepia(0.08) brightness(0.88);
+  }
+  #app:not(.tv-mode) .menu-screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(45, 29, 13, 0.28) 0%, rgba(45, 29, 13, 0.03) 48%, rgba(45, 29, 13, 0.42) 100%),
+      linear-gradient(0deg, rgba(45, 29, 13, 0.26), transparent 45%);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-hud {
+    left: auto;
+    right: 74px;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  #app:not(.tv-mode) .menu-screen .hud-chip {
+    font-size: 16px;
+    padding: 9px 15px;
+    background: rgba(61, 44, 30, 0.76);
+    box-shadow: 0 3px 0 rgba(32, 20, 8, 0.28);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-ui {
+    --menu-col: min(36vw, 460px);
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(390px, 0.72fr);
+    align-items: center;
+    justify-items: stretch;
+    padding: 88px 68px 34px 64px;
+  }
+  #app:not(.tv-mode) .menu-screen .menu-hero {
+    position: absolute;
+    top: 7%;
+    left: 5%;
+    width: auto;
+    align-items: flex-start;
+    padding: 0;
+    gap: 10px;
+    background: none;
+    z-index: 3;
+  }
+  #app:not(.tv-mode) .menu-screen .season-banner {
+    align-self: flex-start;
+  }
+  #app:not(.tv-mode) .menu-screen .menu-hero .menu-chapter {
+    display: none;
+  }
+  #app:not(.tv-mode) .menu-screen .game-title {
+    align-items: flex-start;
+    font-size: clamp(54px, 6.2vw, 92px);
+    text-shadow: 0 5px 0 rgba(61, 44, 30, 0.7), 0 12px 28px rgba(37, 22, 8, 0.45);
+  }
+  #app:not(.tv-mode) .menu-character {
+    position: absolute;
+    display: block;
+    left: 2.5%;
+    bottom: -4%;
+    width: min(43vw, 600px);
+    height: min(73vh, 790px);
+    z-index: 2;
+    pointer-events: none;
+  }
+  #app:not(.tv-mode) .menu-character img {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: auto;
+    height: 100%;
+    object-fit: contain;
+    object-position: left bottom;
+    filter: drop-shadow(0 18px 22px rgba(43, 27, 9, 0.36));
+  }
+  #app:not(.tv-mode) .menu-character-bubble {
+    position: absolute;
+    top: 26%;
+    left: 72%;
+    width: min(23vw, 285px);
+    padding: 18px 22px;
+    border: 3px solid rgba(109, 75, 37, 0.34);
+    border-radius: 25px;
+    background: rgba(255, 247, 230, 0.95);
+    color: var(--ink);
+    font-size: clamp(18px, 1.6vw, 25px);
+    font-weight: 800;
+    line-height: 1.18;
+    box-shadow: 0 9px 24px rgba(43, 27, 9, 0.25);
+  }
+  #app:not(.tv-mode) .menu-character-bubble::after {
+    content: '';
+    position: absolute;
+    left: 18px;
+    bottom: -18px;
+    width: 28px;
+    height: 28px;
+    border-right: 3px solid rgba(109, 75, 37, 0.34);
+    border-bottom: 3px solid rgba(109, 75, 37, 0.34);
+    background: rgba(255, 247, 230, 0.95);
+    transform: skewY(35deg) rotate(18deg);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-panel {
+    grid-column: 2;
+    width: var(--menu-col);
+    justify-self: end;
+    align-items: stretch;
+    gap: 10px;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    z-index: 3;
+  }
+  #app:not(.tv-mode) .menu-screen .menu-progress-block {
+    width: 100%;
+    padding: 15px 18px 13px;
+    border: 2px solid rgba(73, 45, 18, 0.5);
+    border-radius: 15px;
+    background: linear-gradient(180deg, #b88145, #8f5b2f);
+    box-shadow: 0 6px 0 rgba(55, 34, 14, 0.45), inset 0 1px rgba(255, 245, 218, 0.35);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-panel-chapter {
+    display: block;
+    color: #4d2f16;
+    font-size: clamp(18px, 1.6vw, 24px);
+    font-weight: 900;
+    text-align: center;
+    text-shadow: 0 1px rgba(255, 241, 205, 0.48);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-progress-line {
+    color: #fff7e6;
+    text-shadow: 0 2px 2px rgba(50, 29, 10, 0.45);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-progress-line > span:first-child {
+    font-size: 16px;
+  }
+  #app:not(.tv-mode) .menu-screen .menu-progress-line .next-upgrade {
+    color: #fff4cf;
+    opacity: 0.9;
+  }
+  #app:not(.tv-mode) .menu-screen .menu-progress-bar {
+    background: rgba(42, 25, 8, 0.35);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-buttons {
+    width: 100%;
+    gap: 9px;
+  }
+  #app:not(.tv-mode) .menu-screen [data-testid='menu-play'] {
+    min-height: 68px;
+    border-radius: 18px;
+    font-size: clamp(21px, 2vw, 29px);
+    box-shadow: 0 7px 0 #a5312a, 0 13px 24px rgba(52, 29, 12, 0.28);
+  }
+  #app:not(.tv-mode) .menu-screen .mode-switch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0;
+    background: transparent;
+  }
+  #app:not(.tv-mode) .menu-screen .mode-tab {
+    min-height: 48px;
+    border: 2px solid rgba(81, 52, 23, 0.42);
+    border-radius: 13px;
+    background: rgba(255, 247, 230, 0.92);
+    color: var(--ink);
+    box-shadow: 0 4px 0 rgba(61, 44, 30, 0.32);
+  }
+  #app:not(.tv-mode) .menu-screen .mode-tab.active {
+    background: #fff7e6;
+  }
+  #app:not(.tv-mode) .menu-screen .menu-events {
+    gap: 8px;
+    padding-top: 9px;
+    border-color: rgba(255, 247, 230, 0.38);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-events-label {
+    display: block;
+    align-self: stretch;
+    color: #fff7e6;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(42, 25, 8, 0.55);
+  }
+  #app:not(.tv-mode) .menu-screen .event-card {
+    min-height: 61px;
+    border: 2px solid rgba(81, 52, 23, 0.38);
+    background: rgba(255, 247, 230, 0.93);
+    box-shadow: 0 4px 0 rgba(61, 44, 30, 0.32);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-meta-row .btn {
+    min-height: 44px;
+    border-color: rgba(81, 52, 23, 0.38);
+    background: rgba(255, 247, 230, 0.92);
+  }
+  #app:not(.tv-mode) .menu-screen .menu-settings {
+    top: 14px;
+    right: 14px;
+  }
+}
 /*
  * Широкий экран (десктоп, планшет в альбоме): игра держит вертикальный формат
  * по центру, а не растягивается на всю ширину.
@@ -2523,8 +2891,9 @@ html[data-daytime='night'] .yard-lamp-light {
     display: grid;
     place-items: center;
     background:
-      radial-gradient(circle at 50% 0%, rgba(255, 247, 230, 0.16), transparent 55%),
-      linear-gradient(180deg, #8fc3dd 0%, #a7cf8e 46%, #79b34c 100%);
+      radial-gradient(circle at 50% 8%, rgba(255, 231, 170, 0.16), transparent 48%),
+      linear-gradient(rgba(47, 67, 31, 0.48), rgba(35, 55, 25, 0.66)),
+      var(--yard-art-url, linear-gradient(180deg, #8fc3dd 0%, #a7cf8e 46%, #79b34c 100%)) center 62% / cover no-repeat;
   }
   /*
    * Базовый потолок пропорции 2:1 нужен и низким широким окнам (1920×600), где
@@ -2932,7 +3301,7 @@ html[data-daytime='night'] .yard-lamp-light {
 /* ---------- Живой двор: дед-комментатор ---------- */
 .grandpa {
   position: absolute;
-  left: 8px;
+  left: 18px;
   bottom: 70px;
   z-index: 4;
   display: flex;
@@ -2959,11 +3328,21 @@ html[data-daytime='night'] .yard-lamp-light {
 }
 .grandpa-off { display: none; }
 .grandpa-portrait {
-  width: 52px;
-  height: 52px;
-  filter: drop-shadow(0 2px 2px rgba(61, 44, 30, 0.35));
+  width: 66px;
+  height: 66px;
+  overflow: hidden;
+  border: 3px solid #fff2cf;
+  border-radius: 50%;
+  background: #769b48;
+  box-shadow: 0 4px 0 rgba(93, 64, 25, 0.34), 0 8px 16px rgba(61, 44, 30, 0.22);
 }
-.gp-face { width: 100%; height: 100%; }
+.gp-face {
+  width: 100%;
+  height: 104px;
+  display: block;
+  object-fit: cover;
+  object-position: 50% 0;
+}
 .gp-skin { fill: #e8b98f; }
 .gp-cap { fill: #6b4a1f; }
 .gp-beard { fill: #f2efe6; }
@@ -3158,5 +3537,443 @@ html[data-daytime='night'] .yard-lamp-light {
   .boss-game-screen .gate-lock,
   .boss-game-screen .gate-switch {
     animation: none !important;
+  }
+}
+/* ---------- Consumer audit remediation (2026-09) ---------- */
+
+/* A01/A08: the illustrated yard remains the hero on every device, while the
+   live SVG becomes a clearly labelled, progression-aware miniature. */
+.menu-screen .menu-yard-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+.yard-live-scene {
+  position: absolute;
+  z-index: 1;
+  right: 14px;
+  top: 76px;
+  width: clamp(128px, 34vw, 210px);
+  aspect-ratio: 900 / 620;
+  overflow: hidden;
+  border: 3px solid rgba(255, 247, 230, 0.92);
+  border-radius: 18px;
+  background: #79b34c;
+  box-shadow: 0 5px 0 rgba(61, 44, 30, 0.32), 0 12px 24px rgba(43, 29, 10, 0.2);
+}
+.yard-live-scene .yard-svg {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 1 !important;
+  filter: saturate(0.92) sepia(0.05) !important;
+  pointer-events: none !important;
+}
+.yard-live-label {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  padding: 4px 8px;
+  border-radius: 9px;
+  background: rgba(61, 44, 30, 0.86);
+  color: var(--cream);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.menu-character {
+  display: block;
+  position: absolute;
+  z-index: 1;
+  left: 10px;
+  top: 74px;
+  width: clamp(78px, 25vw, 132px);
+  height: clamp(126px, 29vh, 210px);
+  pointer-events: none;
+}
+.menu-character img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 8px 12px rgba(43, 27, 9, 0.28));
+}
+.menu-character-bubble { display: none; }
+
+/* A02/A10: the score target is a stable, high-contrast card and the board grid
+   survives the textured ground. */
+.hud-moves {
+  min-width: 92px;
+  background: rgba(61, 44, 30, 0.9);
+  box-shadow: 0 3px 0 rgba(43, 29, 10, 0.28);
+}
+.hud-par {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 247, 230, 0.36);
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  white-space: pre-line;
+}
+.hud-par.hud-par-ok { color: #fff0a8; }
+.hud-par.hud-par-warn { color: #ffd0cc; }
+.board-grid-line {
+  stroke: rgba(79, 52, 25, 0.32);
+  stroke-width: 3;
+  stroke-dasharray: 8 8;
+  pointer-events: none;
+}
+.target-identity circle {
+  fill: rgba(255, 247, 230, 0.94);
+  stroke: #7a501d;
+  stroke-width: 3px;
+}
+.target-identity path { fill: #f6c445; stroke: #8a6114; stroke-width: 1.5px; }
+html.high-contrast .target-identity circle { fill: #fff; stroke: #151515; stroke-width: 5px; }
+html.high-contrast .target-identity path { fill: #ffdd00; stroke: #151515; stroke-width: 2px; }
+.board:focus-visible {
+  outline: 3px solid var(--sun);
+  outline-offset: -5px;
+  border-radius: 12px;
+}
+
+/* A04: on phones the spoken line occupies the safe strip below the top HUD,
+   never the puzzle cells. The portrait stays on larger canvases. */
+@media (orientation: portrait) and (max-width: 540px) {
+  .game-screen .grandpa {
+    left: 12px;
+    right: 12px;
+    top: 82px;
+    bottom: auto;
+    max-width: none;
+    transform: none;
+    align-items: center;
+  }
+  .game-screen .grandpa-portrait {
+    display: block;
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+  }
+  .game-screen .grandpa-bubble {
+    max-width: calc(100% - 58px);
+    padding: 7px 11px;
+    border-radius: 12px;
+    font-size: 12px;
+    text-align: center;
+  }
+  .game-screen .grandpa-bubble::after { display: none; }
+}
+
+/* A06: league hierarchy always sits on an opaque reading surface. */
+.elite-screen .elite-status,
+.elite-screen .elite-weekly,
+.elite-screen .elite-section {
+  color: var(--ink);
+}
+.elite-screen .elite-status {
+  background: rgba(255, 247, 230, 0.96);
+  border-color: rgba(216, 174, 39, 0.82);
+}
+.elite-screen .elite-weekly {
+  margin: 0 12px 18px;
+  padding: 10px 0 12px;
+  border-radius: 18px;
+  background: rgba(61, 44, 30, 0.78);
+}
+.elite-screen .elite-weekly > .elite-section {
+  margin-top: 0;
+  color: var(--cream);
+  text-shadow: 0 2px 0 rgba(43, 29, 10, 0.5);
+}
+.elite-screen > .elite-section {
+  margin: 12px 12px 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 247, 230, 0.95);
+  box-shadow: 0 3px 0 rgba(61, 44, 30, 0.25);
+}
+
+/* A11/A12: the daily level explains the pieces that may bypass campaign
+   onboarding without obscuring the board. */
+.daily-mechanics {
+  z-index: 3;
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  max-width: calc(100% - 24px);
+  margin: -4px 12px 4px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: rgba(255, 247, 230, 0.94);
+  color: var(--ink);
+  font-size: 12px;
+  box-shadow: 0 3px 0 rgba(61, 44, 30, 0.22);
+}
+.daily-mechanics span {
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: rgba(121, 179, 76, 0.18);
+  font-weight: 700;
+}
+.game-screen:has(.daily-mechanics) .grandpa {
+  display: none;
+}
+
+/* A13: garage shows the actual recoloured field sprite at useful size. */
+.garage-preview {
+  width: min(100%, 280px);
+  margin: 2px auto 8px;
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 35%, #fffdf6, #ead7ad);
+  box-shadow: inset 0 0 0 2px rgba(125, 82, 39, 0.2);
+}
+.garage-car-svg { display: block; width: 100%; height: auto; }
+.garage-grid .skin-swatch { border-radius: 14px; }
+
+/* A14/A15: secondary actions have visible names and ready rewards report the
+   count that can be claimed now. */
+.menu-meta-row { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.menu-meta-row .meta-action {
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 3px;
+  line-height: 1.05;
+}
+.meta-action > span { font-size: 14px; font-weight: 800; }
+.meta-action > small {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  font-weight: 750;
+}
+.weekly-claim { min-width: 100px; }
+
+@media (max-width: 699px) {
+  .yard-live-scene {
+    right: 10px;
+    top: 70px;
+    width: 142px;
+  }
+  .yard-live-label {
+    right: 5px;
+    bottom: 5px;
+    padding: 3px 6px;
+    font-size: 9px;
+  }
+}
+
+/* A03: reserve the system HUD strip on the narrowest phones. */
+@media (max-width: 360px) and (orientation: portrait) {
+  .menu-hero { padding-top: 58px; }
+  .menu-chapter {
+    max-width: calc(100% - 128px);
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+  .menu-hud { right: 58px; gap: 4px; }
+  .hud-chip { padding: 6px 9px; font-size: 12px; }
+  .game-screen .hud-right { gap: 4px; flex-shrink: 0; }
+  .game-screen .hud-star { font-size: 22px; }
+  .game-screen .hud-star-track { display: none; }
+  .game-screen .hint-toast {
+    top: 10px;
+    left: 96px;
+    width: 120px;
+    max-width: 120px;
+    padding: 6px 8px;
+    transform: none;
+    font-size: 11px;
+  }
+  .menu-meta-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
+  .menu-meta-row .meta-action { padding-inline: 1px; }
+  .meta-action > small { font-size: 8px; }
+  .menu-character {
+    left: 8px;
+    top: 58px;
+    width: 58px;
+    height: 88px;
+  }
+  .yard-live-scene {
+    right: 8px;
+    top: 59px;
+    width: 88px;
+    border-width: 2px;
+    border-radius: 12px;
+  }
+  .yard-live-label {
+    right: 3px;
+    bottom: 3px;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+  .menu-hero .game-title {
+    position: absolute;
+    top: 28px;
+    left: 70px;
+    align-items: flex-start;
+    font-size: 25px;
+    transform: rotate(-1deg);
+  }
+  .menu-buttons { gap: 6px; }
+  .menu-events { gap: 6px; padding-top: 6px; }
+  .event-card { padding-block: 7px; }
+}
+
+/* A09: landscape uses the side gutters for controls so the square puzzle can
+   consume almost all available height. */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 600px) {
+  .game-screen {
+    display: grid;
+    grid-template-columns: minmax(156px, 1fr) minmax(280px, calc(100vh - var(--sticky-banner-height) - 8px)) minmax(190px, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .game-screen .hud-top {
+    grid-column: 1;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 10px;
+  }
+  .game-screen .hud-level { flex: 0 0 auto; white-space: normal; text-align: center; font-size: 14px; }
+  .game-screen .hud-right { justify-content: center; }
+  .game-screen .board-host { grid-column: 2; grid-row: 1; padding: 4px; }
+  .game-screen .hud-bottom {
+    grid-column: 3;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 8px;
+  }
+  .game-screen .hud-bottom > .btn {
+    width: 100%;
+    min-height: 45px;
+    flex: 0 0 auto;
+  }
+  .game-screen .icon-btn { min-height: 45px; }
+  .game-screen .daily-mechanics { grid-column: 1; grid-row: 1; align-self: end; margin: 10px; }
+  .game-screen .grandpa { display: none; }
+  .game-screen .hint-toast {
+    top: 184px;
+    left: 12px;
+    width: 180px;
+    max-width: 180px;
+    padding: 8px 10px;
+    transform: none;
+    font-size: 12px;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 540px) {
+  .game-screen:has(.daily-mechanics) .hint-toast.modifier-toast {
+    top: 166px;
+    left: 50%;
+    width: auto;
+    max-width: min(86vw, 420px);
+    transform: translateX(-50%);
+  }
+}
+
+@media (orientation: portrait) and (max-width: 340px) {
+  .game-screen .grandpa {
+    left: 96px;
+    right: 104px;
+    top: 10px;
+    max-width: 120px;
+  }
+  .game-screen .grandpa-portrait { display: none; }
+  .game-screen .grandpa-bubble {
+    max-width: 120px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 700px) {
+  .menu-meta-row { gap: 2px; }
+  .yard-live-scene {
+    left: calc(50% - 170px);
+    right: auto;
+    top: auto;
+    bottom: 64px;
+    width: 120px;
+  }
+}
+
+/* The detailed art still owns the full desktop background; the live yard is a
+   substantial progression window rather than a hidden DOM layer. */
+@media (min-width: 700px) and (min-height: 701px) {
+  #app:not(.tv-mode) .yard-live-scene {
+    top: auto;
+    right: auto;
+    left: 39%;
+    bottom: 4%;
+    width: clamp(205px, 16vw, 255px);
+    border: 7px solid #80552c;
+    border-radius: 16px;
+    background: #d6ae70;
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 231, 181, 0.75),
+      0 5px 0 #5d3b1e,
+      0 14px 30px rgba(43, 27, 9, 0.3);
+    transform: rotate(-1deg);
+  }
+  #app:not(.tv-mode) .yard-live-scene .yard-svg {
+    filter: saturate(0.72) sepia(0.2) contrast(0.94) !important;
+  }
+}
+
+/* Desktop menu: the title occupies the open sky between the character and the
+   interface card. The previous left anchor put the second line directly over
+   Grandpa's eyes. A soft mask also lets the portrait dissolve into the ground
+   instead of ending at a rectangular image boundary. */
+@media (min-width: 1100px) and (min-height: 701px) {
+  #app:not(.tv-mode) .menu-screen .menu-hero {
+    top: 6%;
+    left: 29%;
+    width: min(34vw, 510px);
+    align-items: center;
+  }
+  #app:not(.tv-mode) .menu-screen .game-title {
+    align-items: center;
+    font-size: clamp(52px, 4.8vw, 76px);
+    line-height: 0.94;
+    text-align: center;
+  }
+  #app:not(.tv-mode) .menu-character {
+    bottom: -2%;
+    height: min(78vh, 830px);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 86%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 86%, transparent 100%);
+  }
+}
+@media (min-width: 700px) and (max-width: 1099px) and (min-height: 701px) {
+  #app:not(.tv-mode) .menu-character {
+    top: auto;
+    left: auto;
+  }
+  #app:not(.tv-mode) .yard-live-scene {
+    left: auto;
+    right: 18px;
+    top: 88px;
+    bottom: auto;
+    width: min(28vw, 230px);
   }
 }

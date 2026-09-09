@@ -45,7 +45,13 @@ export class GameAudio {
   private ducked = false;
   private hidden = false;
   private ambientStarted = false;
-  private engine: { osc: OscillatorNode; lfo: OscillatorNode; gain: GainNode } | null = null;
+  private engine: {
+    osc: OscillatorNode;
+    lfo: OscillatorNode;
+    gain: GainNode;
+    filter: BiquadFilterNode;
+    road: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null;
+  } | null = null;
   private engineSample: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
   /** Пара лупов тяги (engine_low/high) с кроссфейдом по скорости drag'а. */
   private enginePair: {
@@ -292,20 +298,30 @@ export class GameAudio {
     }
     if (this.engineSample && this.ctx) {
       this.engineSample.gain.gain.linearRampToValueAtTime(0.1 + 0.09 * k, this.ctx.currentTime + 0.08);
+      return;
+    }
+    if (this.engine && this.ctx) {
+      const { osc, gain, filter, road } = this.engine;
+      osc.frequency.linearRampToValueAtTime(54 + 64 * k, this.ctx.currentTime + 0.08);
+      filter.frequency.linearRampToValueAtTime(230 + 520 * k, this.ctx.currentTime + 0.08);
+      gain.gain.linearRampToValueAtTime(0.045 + 0.065 * k, this.ctx.currentTime + 0.08);
+      road?.gain.gain.linearRampToValueAtTime(0.018 + 0.075 * k, this.ctx.currentTime + 0.08);
     }
   }
 
-  engineStart(): void {
+  engineStart(kind: 'vehicle' | 'tractor' = 'vehicle'): void {
     if (!this.enabled || this.suspended() || !this.ctx || !this.master || this.engine || this.engineSample || this.enginePair) return;
+    const lowKey: SoundFileKey = kind === 'tractor' ? 'tractor_idle' : 'engine_low';
+    const highKey: SoundFileKey = kind === 'tractor' ? 'tractor_move' : 'engine_high';
     // Прогреваем пару лупов на будущие заезды (не блокируя текущий запуск).
-    if (this.sampleLoader && !this.sampleLoader.hasFailed('engine_low')) {
-      void this.sampleLoader.load('engine_low', SOUND_FILE_URLS.engine_low);
+    if (this.sampleLoader && !this.sampleLoader.hasFailed(lowKey)) {
+      void this.sampleLoader.load(lowKey, SOUND_FILE_URLS[lowKey]);
     }
-    if (this.sampleLoader && !this.sampleLoader.hasFailed('engine_high')) {
-      void this.sampleLoader.load('engine_high', SOUND_FILE_URLS.engine_high);
+    if (this.sampleLoader && !this.sampleLoader.hasFailed(highKey)) {
+      void this.sampleLoader.load(highKey, SOUND_FILE_URLS[highKey]);
     }
-    const lowBuf = this.sampleLoader?.get('engine_low');
-    const highBuf = this.sampleLoader?.get('engine_high');
+    const lowBuf = this.sampleLoader?.get(lowKey);
+    const highBuf = this.sampleLoader?.get(highKey);
     if (lowBuf && highBuf) {
       const mkLoop = (buffer: AudioBuffer, gainValue: number) => {
         const src = this.ctx!.createBufferSource();
@@ -347,14 +363,29 @@ export class GameAudio {
     lfo.connect(lfoGain).connect(osc.frequency);
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 220;
+    filter.frequency.value = kind === 'tractor' ? 180 : 230;
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0, this.ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 0.12);
     osc.connect(filter).connect(gain).connect(this.master);
+    let road: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
+    if (this.noiseBuf) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.noiseBuf;
+      src.loop = true;
+      const roadFilter = this.ctx.createBiquadFilter();
+      roadFilter.type = 'bandpass';
+      roadFilter.frequency.value = kind === 'tractor' ? 520 : 820;
+      const roadGain = this.ctx.createGain();
+      roadGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      roadGain.gain.linearRampToValueAtTime(0.018, this.ctx.currentTime + 0.12);
+      src.connect(roadFilter).connect(roadGain).connect(this.master);
+      src.start();
+      road = { src, gain: roadGain, filter: roadFilter };
+    }
     osc.start();
     lfo.start();
-    this.engine = { osc, lfo, gain };
+    this.engine = { osc, lfo, gain, filter, road };
   }
 
   engineStop(): void {
@@ -375,9 +406,13 @@ export class GameAudio {
       return;
     }
     if (!this.engine || !this.ctx) return;
-    const { osc, lfo, gain } = this.engine;
+    const { osc, lfo, gain, road } = this.engine;
     this.engine = null;
     gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.15);
+    if (road) {
+      road.gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.12);
+      road.src.stop(this.ctx.currentTime + 0.18);
+    }
     osc.stop(this.ctx.currentTime + 0.2);
     lfo.stop(this.ctx.currentTime + 0.2);
   }
@@ -492,7 +527,9 @@ export class GameAudio {
         this.tone(vary(300), 0.08, 'triangle', 0.2, 0, 440);
         break;
       case 'move':
-        this.gravelRoll(vary(0.34), 0.17);
+        // Не второй «мотор» после drag-лупа, а короткое оседание шин и подвески.
+        this.gravelRoll(vary(0.22), 0.11);
+        this.tone(vary(74), 0.1, 'sine', 0.09, 0.025, 52);
         break;
       case 'crateSlide':
         // Короче и суше «move»: ящик скребёт по земле, а не катится на
@@ -513,7 +550,9 @@ export class GameAudio {
         });
         break;
       case 'bark':
-        this.playSample('dog_bark', 0.3, () => {
+        // Исходная запись очень плотная (около -0.7 dBFS RMS); прежний gain
+        // делал редкий декоративный лай громче голоса деда примерно на 12 dB.
+        this.playSample('dog_bark', 0.08, () => {
           this.tone(150, 0.08, 'square', 0.22, 0, 95);
           this.tone(140, 0.09, 'square', 0.22, 0.13, 88);
         });
@@ -534,7 +573,7 @@ export class GameAudio {
         });
         break;
       case 'gate':
-        this.playSample('gate_creak', 0.3, () => {
+        this.playSample('gate_creak', 0.16, () => {
           this.tone(200, 0.34, 'sawtooth', 0.055, 0, 300);
           this.noise(0.32, 0.07, 900, 0, 260);
         });
@@ -543,7 +582,7 @@ export class GameAudio {
         // Зеркало 'gate': тот же скрип, но свип тона ВНИЗ (300→180) и глухой
         // стук створок в конце. Держащаяся кнопка закрывает ворота посреди
         // маршрута, и игрок обязан услышать это, не глядя на створки.
-        this.playSample('gate_creak', 0.26, () => {
+        this.playSample('gate_creak', 0.15, () => {
           this.tone(300, 0.3, 'sawtooth', 0.05, 0, 180);
           this.noise(0.28, 0.06, 700, 0, 220);
         });
@@ -628,7 +667,7 @@ export class GameAudio {
       case 'chickenScatter':
         // Курица-объект перескочила на другую клетку: вспархивание стаи —
         // шум крыльев вместо одиночного «ко-ко» одиночной декоративной курицы.
-        this.playSample('chickens_scatter', 0.28, () => {
+        this.playSample('chickens_scatter', 0.16, () => {
           for (let i = 0; i < 3; i++) {
             const base = 640 + Math.random() * 260;
             this.tone(base, 0.05, 'square', 0.055, i * 0.06, base * 1.2);

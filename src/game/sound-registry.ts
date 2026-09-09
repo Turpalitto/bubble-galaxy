@@ -1,7 +1,7 @@
 /**
  * Реестр загрузки реальных аудиосэмплов с graceful fallback на синтез.
- * Файлов сейчас нет (см. AUDIO_ASSETS_REQUIRED.md) — это ожидаемо: каждая
- * загрузка честно провалится и молча откатится на WebAudio-синтез в GameAudio.
+ * Для каждого ключа предусмотрен реальный файл; при повреждении или сетевой
+ * ошибке загрузчик молча откатывается на WebAudio-синтез в GameAudio.
  * Инъекция fetch/decode делает модуль тестируемым без реального AudioContext.
  */
 
@@ -45,19 +45,19 @@ export const SOUND_FILE_URLS: Record<SoundFileKey, string> = {
   tractor_idle: `${AUDIO_BASE}tractor_idle.mp3`,
   tractor_move: `${AUDIO_BASE}tractor_move.mp3`,
   gate_creak: `${AUDIO_BASE}gate_creak.mp3`,
-  gate_swing: `${AUDIO_BASE}gate_swing.mp3`,
+  gate_swing: `${AUDIO_BASE}gate_swing.m4a`,
   button_click: `${AUDIO_BASE}button_click.mp3`,
   wood_hit: `${AUDIO_BASE}wood_hit.mp3`,
   metal_hit: `${AUDIO_BASE}metal_hit.mp3`,
   crate_slide: `${AUDIO_BASE}crate_slide.mp3`,
   chickens_scatter: `${AUDIO_BASE}chickens_scatter.mp3`,
   dog_bark: `${AUDIO_BASE}dog_bark.mp3`,
-  grandpa_mumble_1: `${AUDIO_BASE}grandpa_mumble_1.mp3`,
-  grandpa_mumble_2: `${AUDIO_BASE}grandpa_mumble_2.mp3`,
-  grandpa_mumble_3: `${AUDIO_BASE}grandpa_mumble_3.mp3`,
+  grandpa_mumble_1: `${AUDIO_BASE}grandpa_mumble_1.m4a`,
+  grandpa_mumble_2: `${AUDIO_BASE}grandpa_mumble_2.m4a`,
+  grandpa_mumble_3: `${AUDIO_BASE}grandpa_mumble_3.m4a`,
   star_collect: `${AUDIO_BASE}star_collect.mp3`,
   boss_phase: `${AUDIO_BASE}boss_phase.mp3`,
-  victory_drive: `${AUDIO_BASE}victory_drive.mp3`
+  victory_drive: `${AUDIO_BASE}victory_drive.wav`
 };
 
 /** Инъекция сетевого слоя и декодера — тестируется без реального браузера. */

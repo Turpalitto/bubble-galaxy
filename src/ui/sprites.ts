@@ -1,6 +1,7 @@
 /**
- * Вся графика — программный SVG. Техника рисуется горизонтально,
- * «носом» вправо, в боксе (len*100)×100; вертикальные фигуры поворачивает board.ts.
+ * Техника рисуется горизонтально, «носом» вправо, в боксе
+ * (len*100)×100; вертикальные фигуры поворачивает board.ts. Новые машины — растровые
+ * виды сверху; старые SVG-корпуса оставлены как лёгий fallback.
  */
 import type { PieceDef, WallKind } from '../core/types';
 
@@ -53,6 +54,39 @@ export function getTargetSkin(): TargetSkin {
 }
 
 const TARGET: CarColors = TARGET_SKINS[0];
+const VEHICLE_ART_BASE = `${import.meta.env.BASE_URL}art/vehicles/`;
+const BOARD_ART_BASE = `${import.meta.env.BASE_URL}art/board/`;
+const USE_RASTER_VEHICLES = true;
+
+const TARGET_SKIN_FILTERS = [
+  'none',
+  'hue-rotate(54deg) saturate(1.08)',
+  'hue-rotate(164deg) saturate(1.2) brightness(1.08)',
+  'hue-rotate(112deg) saturate(0.95) brightness(1.12)',
+  'saturate(0.12) brightness(0.5)',
+  'hue-rotate(-96deg) saturate(0.92)',
+  'sepia(0.28) saturate(0.22) brightness(1.5)',
+  'hue-rotate(145deg) saturate(1.3)',
+  'hue-rotate(184deg) saturate(1.5) brightness(1.15)',
+  'hue-rotate(-68deg) saturate(1.1) brightness(0.72)'
+];
+
+/** Крупный предпросмотр фактического игрового спрайта для гаража. */
+export function targetCarPreview(index: number): string {
+  const safeIndex = Math.max(0, Math.min(TARGET_SKINS.length - 1, index));
+  const filter = TARGET_SKIN_FILTERS[safeIndex] ?? 'none';
+  return `<svg class="garage-car-svg" viewBox="0 0 200 100" aria-hidden="true">
+    <ellipse cx="100" cy="82" rx="82" ry="10" fill="rgba(43,29,10,.22)"/>
+    ${vehicleImage('target-blue-v1.webp', 200, filter)}
+    <g class="target-identity" aria-hidden="true"><circle cx="100" cy="50" r="15"/><path d="M100 39l3.4 7 7.6 1.1-5.5 5.3 1.3 7.6-6.8-3.6-6.8 3.6 1.3-7.6-5.5-5.3 7.6-1.1z"/></g>
+  </svg>`;
+}
+
+const CAR_SKIN_FILTERS = [
+  'none',
+  'hue-rotate(166deg) saturate(0.72) brightness(0.9)',
+  'hue-rotate(46deg) saturate(1.05) brightness(1.12)'
+];
 const GLASS = '#c7e6f2';
 const GLASS_DARK = '#8fbfd4';
 const TIRE = '#332a20';
@@ -204,14 +238,18 @@ function tractorBody(): string {
     <circle cx="290" cy="68" r="5" fill="#ffe9a8" stroke="#93302a" stroke-width="2"/>`;
 }
 
+function vehicleImage(file: string, width: number, filter = 'none'): string {
+  const style = filter === 'none' ? '' : ` style="filter:${filter}"`;
+  return `<image class="vehicle-art" href="${VEHICLE_ART_BASE}${file}" x="3" y="3" width="${width - 6}" height="94" preserveAspectRatio="xMidYMid meet"${style}/>`;
+}
+
+function boardObjectImage(file: string, inset = 5): string {
+  return `<image class="board-object-art" href="${BOARD_ART_BASE}${file}" x="${inset}" y="${inset}" width="${100 - inset * 2}" height="${100 - inset * 2}" preserveAspectRatio="xMidYMid meet"/>`;
+}
+
 function crateBody(): string {
-  const wood = gradFill('#e0b978', '#c89b5a');
   return `
-    <defs>${wood.defs}</defs>
-    <rect x="14" y="14" width="72" height="72" rx="8" fill="${wood.fill}" stroke="#8f6a35" stroke-width="5"/>
-    <line x1="20" y1="20" x2="80" y2="80" stroke="#8f6a35" stroke-width="4"/>
-    <line x1="80" y1="20" x2="20" y2="80" stroke="#8f6a35" stroke-width="4"/>
-    <rect x="14" y="42" width="72" height="16" fill="#b9884a" stroke="#8f6a35" stroke-width="3"/>
+    ${boardObjectImage('crate-painted-v1.webp', 4)}
     <g class="crate-badge">
       <circle cx="78" cy="24" r="17" fill="#fff7e6" stroke="#8f6a35" stroke-width="3"/>
       <text class="crate-badge-text" x="78" y="31" text-anchor="middle" font-size="22" font-weight="700" fill="#6b4a1f">2</text>
@@ -221,15 +259,27 @@ function crateBody(): string {
 /** Горизонтальный спрайт фигуры (без поворота и без позиции). */
 export function pieceArt(def: PieceDef): string {
   const shadow = `<rect x="10" y="20" width="${def.len * CELL - 14}" height="76" rx="20" fill="rgba(43,29,10,0.25)"/>`;
+  const skin = def.skin ?? 0;
   switch (def.kind) {
     case 'target':
-      return shadow + carBody(TARGET_SKINS[targetSkinIdx] ?? TARGET, 'target');
+      return (
+        shadow +
+        (USE_RASTER_VEHICLES
+          ? vehicleImage('target-blue-v1.webp', 200, TARGET_SKIN_FILTERS[targetSkinIdx] ?? 'none')
+          : carBody(TARGET_SKINS[targetSkinIdx] ?? TARGET, 'target')) +
+        `<g class="target-identity" aria-hidden="true"><circle cx="100" cy="50" r="15"/><path d="M100 39l3.4 7 7.6 1.1-5.5 5.3 1.3 7.6-6.8-3.6-6.8 3.6 1.3-7.6-5.5-5.3 7.6-1.1z"/></g>`
+      );
     case 'car':
-      return shadow + carBody(CAR_SKINS[(def.skin ?? 0) % CAR_SKINS.length], (def.skin ?? 0) % CAR_SKINS.length as 0 | 1 | 2);
+      return (
+        shadow +
+        (USE_RASTER_VEHICLES
+          ? vehicleImage('car-red-v1.webp', 200, CAR_SKIN_FILTERS[skin % CAR_SKIN_FILTERS.length] ?? 'none')
+          : carBody(CAR_SKINS[skin % CAR_SKINS.length], (skin % CAR_SKINS.length) as 0 | 1 | 2))
+      );
     case 'truck':
-      return shadow + truckBody();
+      return shadow + (USE_RASTER_VEHICLES ? vehicleImage('truck-hay-v1.webp', 300) : truckBody());
     case 'tractor':
-      return shadow + tractorBody();
+      return shadow + (USE_RASTER_VEHICLES ? vehicleImage('tractor-hay-v1.webp', 300) : tractorBody());
     case 'crate':
       return `<rect x="12" y="18" width="82" height="76" rx="10" fill="rgba(43,29,10,0.25)"/>` + crateBody();
   }
@@ -238,18 +288,9 @@ export function pieceArt(def: PieceDef): string {
 export function wallArt(kind: WallKind): string {
   switch (kind) {
     case 'hay':
-      return `
-        <circle cx="50" cy="52" r="38" fill="#ecc961" stroke="#c9a43e" stroke-width="5"/>
-        <path d="M 22 40 A 34 34 0 0 1 78 40" fill="none" stroke="#c9a43e" stroke-width="4"/>
-        <path d="M 18 58 A 36 36 0 0 0 82 58" fill="none" stroke="#c9a43e" stroke-width="4"/>
-        <circle cx="50" cy="52" r="12" fill="#dcb64e" stroke="#c9a43e" stroke-width="3"/>`;
+      return boardObjectImage('hay-bale-painted-v1.webp', 3);
     case 'barrel':
-      return `
-        <circle cx="50" cy="52" r="36" fill="#8a5a30" stroke="#63401f" stroke-width="5"/>
-        <circle cx="50" cy="52" r="25" fill="none" stroke="#63401f" stroke-width="4"/>
-        <circle cx="50" cy="52" r="12" fill="#a06c3c" stroke="#63401f" stroke-width="3"/>
-        <line x1="50" y1="16" x2="50" y2="88" stroke="#63401f" stroke-width="3"/>
-        <line x1="14" y1="52" x2="86" y2="52" stroke="#63401f" stroke-width="3"/>`;
+      return boardObjectImage('barrel-painted-v1.webp', 4);
     case 'log':
       return `
         <rect x="8" y="30" width="84" height="18" rx="9" fill="#8a5a30" stroke="#63401f" stroke-width="4"/>
@@ -333,19 +374,11 @@ export function fieldChickenArt(ghost: boolean): string {
        <path d="M58 17 l6 5 l-7 4" fill="none" stroke="#e2574c" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>`
     : `<circle cx="50" cy="52" r="38" fill="rgba(226,87,76,0.16)" stroke="#e2574c" stroke-width="4.5"/>
        <circle cx="50" cy="52" r="30" fill="none" stroke="#fff1c9" stroke-width="2.5" opacity="0.7"/>`;
-  return `${pen}<g class="field-chicken-art" opacity="${ghost ? 0.45 : 1}" transform="translate(50,58) scale(2.1)">${chickenArt()}</g>`;
+  return `${pen}<g class="field-chicken-art" opacity="${ghost ? 0.45 : 1}" transform="translate(50,58) scale(1.55)">${chickenArt()}</g>`;
 }
 
 export function chickenArt(): string {
-  return `
-    <ellipse cx="0" cy="14" rx="15" ry="4" fill="rgba(43,29,10,0.2)"/>
-    <path d="M-14 4 Q-20 -8 -8 -8 L 2 -8 Q 14 -8 12 2 Q 10 12 -2 12 Q -12 12 -14 4 Z" fill="#fdf6e8" stroke="#d8c9a8" stroke-width="2"/>
-    <circle cx="8" cy="-10" r="7" fill="#fdf6e8" stroke="#d8c9a8" stroke-width="2"/>
-    <path d="M6 -17 Q8 -21 10 -17 Q12 -21 14 -16" fill="none" stroke="#d9534a" stroke-width="3" stroke-linecap="round"/>
-    <path d="M14 -10 L21 -8 L14 -5 Z" fill="#e8a33d"/>
-    <circle cx="9" cy="-11" r="1.6" fill="#3d2c1e"/>
-    <line x1="-4" y1="12" x2="-4" y2="17" stroke="#e8a33d" stroke-width="2.5"/>
-    <line x1="3" y1="12" x2="3" y2="17" stroke="#e8a33d" stroke-width="2.5"/>`;
+  return `<image class="chicken-art" href="${BOARD_ART_BASE}chicken-v1.webp" x="-28" y="-19" width="56" height="37" preserveAspectRatio="xMidYMid meet"/>`;
 }
 
 /** Декоративный колодец — чисто атмосферный элемент двора. */

@@ -6,6 +6,9 @@
 import type { LevelDef } from '../core/types';
 import { kindBadge } from './sprites';
 
+const BOARD_ART_BASE = `${import.meta.env.BASE_URL}art/board/`;
+const VEHICLE_ART_BASE = `${import.meta.env.BASE_URL}art/vehicles/`;
+
 const KIND_FILL: Record<string, string> = {
   target: '#f6c445',
   car: '#45968f',
@@ -24,8 +27,29 @@ export function levelThumbnail(level: LevelDef): string {
     const h = p.dir === 'v' ? p.len * CELL : CELL;
     const x = p.x * CELL;
     const y = p.y * CELL;
-    const fill = KIND_FILL[p.kind] ?? '#999';
-    pieces += `<rect x="${x + 0.6}" y="${y + 0.6}" width="${w - 1.2}" height="${h - 1.2}" rx="2" fill="${fill}"/>`;
+    const vehicleFile =
+      p.kind === 'target'
+        ? 'target-blue-v1.webp'
+        : p.kind === 'car'
+          ? 'car-red-v1.webp'
+          : p.kind === 'truck'
+            ? 'truck-hay-v1.webp'
+            : p.kind === 'tractor'
+              ? 'tractor-hay-v1.webp'
+              : null;
+    if (vehicleFile) {
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      const iw = p.len * CELL;
+      const ih = CELL;
+      const ix = cx - iw / 2;
+      const iy = cy - ih / 2;
+      const rotate = p.dir === 'v' ? ` transform="rotate(90 ${cx} ${cy})"` : '';
+      pieces += `<image href="${VEHICLE_ART_BASE}${vehicleFile}" x="${ix}" y="${iy}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid meet"${rotate}/>`;
+    } else {
+      const fill = KIND_FILL[p.kind] ?? '#999';
+      pieces += `<rect x="${x + 0.6}" y="${y + 0.6}" width="${w - 1.2}" height="${h - 1.2}" rx="2" fill="${fill}"/>`;
+    }
     if (p.kind === 'target') {
       pieces += `<text x="${x + w / 2}" y="${y + h / 2 + 2.6}" text-anchor="middle" font-size="7" fill="#7a4f10">${kindBadge('target')}</text>`;
     }
@@ -48,8 +72,7 @@ export function levelThumbnail(level: LevelDef): string {
   else exitMark = `<rect x="${exit.index * CELL + 1}" y="-2" width="${CELL - 2}" height="3" fill="#fff1c9"/>`;
 
   return `<svg class="level-thumb" viewBox="-3 -3 ${W + 6} ${H + 6}" aria-hidden="true">
-    <rect x="-3" y="-3" width="${W + 6}" height="${H + 6}" rx="6" fill="#dbb271"/>
-    <rect x="0" y="0" width="${W}" height="${H}" fill="#c9a45e" opacity="0.35"/>
+    <image href="${BOARD_ART_BASE}yard-ground-v1.webp" x="-3" y="-3" width="${W + 6}" height="${H + 6}" preserveAspectRatio="none"/>
     ${exitMark}
     ${extras}
     ${pieces}

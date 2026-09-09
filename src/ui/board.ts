@@ -20,6 +20,7 @@ import { t } from '../game/i18n';
 import { CELL, chickenArt, fieldChickenArt, iceArt, kindBadge, pieceArt, plankArt, starArt, wallArt, wellArt } from './sprites';
 
 const M = 90; // поля вокруг двора: забор, куры
+const BOARD_GROUND_URL = `${import.meta.env.BASE_URL}art/board/yard-ground-v1.webp`;
 
 export interface BoardEvents {
   onPick(piece: number): void;
@@ -253,19 +254,11 @@ export class BoardView {
     // достаточно нарисовать окружение шире — оно заполнит запас на любом экране.
     const OUT = M * 8;
     let ground = `
-      <rect x="${-OUT}" y="${-OUT}" width="${W + 2 * OUT}" height="${H + 2 * OUT}" fill="#79b34c"/>
+      <rect x="${-OUT}" y="${-OUT}" width="${W + 2 * OUT}" height="${H + 2 * OUT}" fill="#45642f" fill-opacity="0.18"/>
       <rect x="${-M}" y="${-M}" width="${W + 2 * M}" height="${H + 2 * M}" fill="#7cb84e"/>
       <rect x="-14" y="-14" width="${W + 28}" height="${H + 28}" rx="18" fill="#c9a45e"/>
-      <rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="#dbb271"/>`;
-    // травяные кочки на газоне
-    for (let i = 0; i < 26; i++) {
-      const side = Math.floor(rng() * 4);
-      const along = rng() * (side < 2 ? W + 2 * M : H + 2 * M) - M;
-      const depth = 16 + rng() * (M - 46);
-      const [cx, cy] =
-        side === 0 ? [along, -depth - 14] : side === 1 ? [along, H + depth + 14] : side === 2 ? [-depth - 14, along] : [W + depth + 14, along];
-      ground += `<path d="M${cx - 7} ${cy + 4} q3 -10 7 0 q3 -10 7 0" fill="none" stroke="#5f9c3c" stroke-width="3" stroke-linecap="round"/>`;
-    }
+      <rect x="0" y="0" width="${W}" height="${H}" rx="8" fill="#dbb271"/>
+      <image class="board-ground-art" href="${BOARD_GROUND_URL}" x="${-M - 120}" y="${-M - 120}" width="${W + 2 * M + 240}" height="${H + 2 * M + 240}" preserveAspectRatio="none"/>`;
     // Дальний луг за забором: кочки, кустики и редкие деревца. Плотность низкая
     // и убывает от двора — это фон, он не должен спорить с полем за внимание.
     // Всё детерминировано тем же rng (уровень выглядит одинаково при каждом
@@ -291,12 +284,15 @@ export class BoardView {
           <circle cx="${(x + h * 0.2).toFixed(0)}" cy="${y - h * 0.4}" r="${(h * 0.22).toFixed(0)}" fill="#69a641"/>`;
       }
     }
+    // Единая рисованная подложка обрезана до своей богатой травяной кромки:
+    // так край остаётся живым, а не заканчивается ровной зелёной полосой.
+
     // сетка двора
-    for (let x = 1; x < level.width; x++) ground += `<line x1="${x * CELL}" y1="4" x2="${x * CELL}" y2="${H - 4}" stroke="rgba(93,64,25,0.16)" stroke-width="3" stroke-dasharray="10 12"/>`;
-    for (let y = 1; y < level.height; y++) ground += `<line x1="4" y1="${y * CELL}" x2="${W - 4}" y2="${y * CELL}" stroke="rgba(93,64,25,0.16)" stroke-width="3" stroke-dasharray="10 12"/>`;
+    for (let x = 1; x < level.width; x++) ground += `<line class="board-grid-line" x1="${x * CELL}" y1="4" x2="${x * CELL}" y2="${H - 4}"/>`;
+    for (let y = 1; y < level.height; y++) ground += `<line class="board-grid-line" x1="4" y1="${y * CELL}" x2="${W - 4}" y2="${y * CELL}"/>`;
     // накатанная дорожка к воротам
     const lane = this.laneRect();
-    ground += `<rect x="${lane.x}" y="${lane.y}" width="${lane.w}" height="${lane.h}" fill="rgba(255,244,214,0.28)" rx="10"/>`;
+    ground += `<rect x="${lane.x}" y="${lane.y}" width="${lane.w}" height="${lane.h}" fill="rgba(255,244,214,0.14)" rx="10"/>`;
     // дорожка-выезд за забором
     const ex = level.exit;
     const roadA = ex.index * CELL + 6;
