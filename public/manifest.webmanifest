@@ -1,0 +1,16 @@
+{
+  "name": "Bubble Galaxy",
+  "short_name": "Bubble Galaxy",
+  "description": "Космический bubble shooter: 40 уровней, бесконечный режим, дейли-челлендж и мировые лидерборды.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070a1f",
+  "theme_color": "#0b1030",
+  "lang": "ru",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+  ]
+}

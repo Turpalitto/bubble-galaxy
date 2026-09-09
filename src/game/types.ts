@@ -1,17 +1,13 @@
-export type BubbleSpecial = 'bomb' | 'rainbow' | 'lightning' | 'freeze';
+export type Special = "bomb" | "lightning" | "rainbow" | "stone";
+export type Mode = "campaign" | "endless" | "daily";
+export type Booster = "bomb" | "rainbow" | "laser";
 
-export interface Bubble {
-  x: number;
-  y: number;
-  color: string;
+export interface GridBubble {
   row: number;
   col: number;
-  special?: BubbleSpecial;
-  popping?: boolean;
-  popFrame?: number;
-  falling?: boolean;
-  vy?: number;
-  alpha?: number;
+  color: number; // index into COLORS, -1 for stone
+  special?: Special;
+  wobble?: number; // seconds of wobble anim left
 }
 
 export interface Projectile {
@@ -19,59 +15,99 @@ export interface Projectile {
   y: number;
   vx: number;
   vy: number;
-  color: string;
-  active: boolean;
+  color: number;
+  special?: Special;
+  bounces: number;
 }
 
-export type GameScreen = 'menu' | 'playing' | 'paused' | 'levelComplete' | 'gameOver';
-
-export interface GameData {
-  score: number;
-  level: number;
-  shotsLeft: number;
-  highScore: number;
-  combo: number;
-  stars: number;
-}
-
-export interface PlayerProgress {
-  highScore: number;
-  unlockedLevels: number;
-  levelStars: number[];
-  totalBubblesPopped: number;
-  achievements: string[];
-  campaignComplete: boolean;
-  endlessHighScore: number;
-}
-
-export interface ParticleEffect {
+export interface Particle {
   x: number;
   y: number;
   vx: number;
   vy: number;
-  color: string;
   life: number;
   maxLife: number;
   size: number;
+  color: string;
+  kind: 0 | 1 | 2; // 0 circle, 1 spark, 2 ring
 }
 
-export interface ScorePopup {
+export interface FallingBubble {
   x: number;
   y: number;
-  value: number;
+  vx: number;
+  vy: number;
+  rot: number;
+  color: number;
+  special?: Special;
+  life: number;
+}
+
+export interface Popup {
+  x: number;
+  y: number;
+  text: string;
   life: number;
   maxLife: number;
-  combo: number;
+  color: string;
+  scale: number;
 }
 
-export interface LevelSessionStats {
-  misses: number;
-  maxCombo: number;
-  consecutiveHits: number;
-}
+export type EngineStatus = "intro" | "ready" | "flying" | "resolving" | "won" | "lost";
 
-export interface LeaderboardEntry {
-  rank: number;
+export interface EngineSnapshot {
+  status: EngineStatus;
   score: number;
-  name: string;
+  combo: number;
+  maxCombo: number;
+  shotsLeft: number;
+  maxShots: number;
+  wave: number;
+  shotsToNextWave: number;
+  popped: number;
+  fever: boolean;
+  feverTime: number;
+  laserShots: number;
+  currentColor: number;
+  currentSpecial?: Special;
+  nextColor: number;
+  bubblesLeft: number;
+  stars: number;
+  danger: number; // 0..1 proximity
 }
+
+export type EngineEvent =
+  | { type: "shoot" }
+  | { type: "bounce" }
+  | { type: "stick" }
+  | { type: "pop"; count: number; combo: number; special?: Special; x: number; y: number }
+  | { type: "fall"; count: number }
+  | { type: "miss" }
+  | { type: "fever" }
+  | { type: "wave"; wave: number }
+  | { type: "won"; stars: number; score: number }
+  | { type: "lost"; score: number }
+  | { type: "shake"; power: number };
+
+export interface LevelConfig {
+  mode: Mode;
+  level: number; // 1-based campaign level, wave for endless, day index for daily
+  seed: number;
+  rows: number;
+  colors: number;
+  maxShots: number; // 0 = infinite (endless)
+  pattern: PatternKind;
+  stoneChance: number;
+  specialChance: number;
+  tutorial?: boolean;
+}
+
+export type PatternKind =
+  | "full"
+  | "checker"
+  | "pyramid"
+  | "diamond"
+  | "columns"
+  | "holes"
+  | "stonewall"
+  | "zigzag";

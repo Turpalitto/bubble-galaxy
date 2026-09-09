@@ -1,630 +1,594 @@
 import {
-  BUBBLE_RADIUS, GRID_COLS, BUBBLE_COLORS, BUBBLE_SPEED,
-  LEVELS, SPECIAL_BUBBLE_CHANCE, ENDLESS_LEVEL_IDX, DAILY_LEVEL_IDX,
-  MAX_GRID_ROWS, ENDLESS_SHOTS_PER_WAVE, TOP_OFFSET, SHOOTER_FROM_BOTTOM,
-} from './constants';
-import type { Bubble, Projectile, ParticleEffect, BubbleSpecial } from './types';
+  COLORS, DANGER_Y, FALL_BONUS_MULT, FEVER_COMBO, FEVER_DURATION, GRID_COLS, LOGICAL_H, LOGICAL_W,
+  MIN_ANGLE_DEG, MIN_MATCH, POINTS_PER_BUBBLE, PROJECTILE_SPEED, R, ROW_H, SHOOTER_Y, STAR_THRESHOLDS, TOP_Y,
+} from "./constants";
+import { colsInRow, generateEndlessRow, generateGrid, neighbors, pruneFloating } from "./levels";
+import { createRng, type Rng } from "./rng";
+import type {
+  Booster, EngineEvent, EngineSnapshot, EngineStatus, FallingBubble, GridBubble, LevelConfig, Particle, Popup, Projectile, Special,
+} from "./types";
 
-// ─── Grid helpers ──────────────────────────────────────────────────────────
-export function getBubbleX(col: number, row: number, canvasWidth: number): number {
-  const gridWidth = GRID_COLS * (BUBBLE_RADIUS * 2);
-  const startX = (canvasWidth - gridWidth) / 2 + BUBBLE_RADIUS;
-  const offset = row % 2 === 0 ? 0 : BUBBLE_RADIUS;
-  return startX + col * (BUBBLE_RADIUS * 2) + offset;
-}
+const key = (r: number, c: number) => r * 32 + c;
+export const cellX = (row: number, col: number, parity: number) => R + col * 2 * R + ((row + parity) % 2 === 1 ? R : 0);
+export const cellY = (row: number) => TOP_Y + R + row * ROW_H;
+const SHOOTER_X = LOGICAL_W / 2;
+const MIN_ANGLE = (MIN_ANGLE_DEG * Math.PI) / 180;
 
-export function getBubbleY(row: number, topOffset: number): number {
-  return topOffset + row * (BUBBLE_RADIUS * 1.73) + BUBBLE_RADIUS;
-}
+export class BubbleEngine {
+  cfg: LevelConfig;
+  grid = new Map<number, GridBubble>();
+  parity = 0;
+  status: EngineStatus = "intro";
+  introT = 0;
+  time = 0;
+  cooldown = 0;
 
-export function easeOutBounce(t: number): number {
-  if (t < 1 / 2.75) return 7.5625 * t * t;
-  if (t < 2 / 2.75) return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75;
-  if (t < 2.5 / 2.75) return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375;
-  return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
-}
+  score = 0;
+  combo = 0;
+  maxCombo = 0;
+  shotsLeft = 0;
+  shotsFired = 0;
+  wave = 1;
+  shotsToNextWave = 8;
+  popped = 0;
+  fever = false;
+  feverTime = 0;
+  laserShots = 0;
+  stars = 0;
 
-function getNeighborCells(row: number, col: number): { row: number; col: number }[] {
-  const even = row % 2 === 0;
-  return (even
-    ? [[-1, -1], [-1, 0], [0, -1], [0, 1], [1, -1], [1, 0]]
-    : [[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]]
-  ).map(([dr, dc]) => ({ row: row + dr, col: col + dc }));
-}
+  current: { color: number; special?: Special } = { color: 0 };
+  next: { color: number } = { color: 0 };
+  projectile: Projectile | null = null;
+  trail: { x: number; y: number }[] = [];
+  aimAngle = Math.PI / 2;
+  guide: { x: number; y: number }[] = [];
+  guideCell: { row: number; col: number } | null = null;
 
-// ─── Grid generation ───────────────────────────────────────────────────────
-export function generateGrid(levelIdx: number, canvasWidth: number, topOffset: number): Bubble[] {
-  if (levelIdx === DAILY_LEVEL_IDX) return generateDailyGrid(canvasWidth, topOffset);
+  particles: Particle[] = [];
+  falling: FallingBubble[] = [];
+  popups: Popup[] = [];
+  shake = 0;
+  dropAnim = 0;
+  flashColor: string | null = null;
+  flashT = 0;
 
-  const bubbles: Bubble[] = [];
-  if (levelIdx === ENDLESS_LEVEL_IDX) {
-    const rows = 4;
-    const usedColors = BUBBLE_COLORS.slice(0, 5);
-    for (let row = 0; row < rows; row++) {
-      const cols = row % 2 === 0 ? GRID_COLS : GRID_COLS - 1;
+  private rng: Rng;
+  private listeners: ((e: EngineEvent) => void)[] = [];
+  private colorsAvailable: number;
+
+  constructor(cfg: LevelConfig) {
+    this.cfg = cfg;
+    this.rng = createRng(cfg.seed ^ 0x9e3779b9);
+    this.colorsAvailable = cfg.colors;
+    this.shotsLeft = cfg.maxShots;
+    generateGrid(cfg).forEach((b) => this.grid.set(key(b.row, b.col), b));
+    this.current = { color: this.pickColor(-1) };
+    this.next = { color: this.pickColor(this.current.color) };
+    this.computeGuide();
+  }
+
+  on(fn: (e: EngineEvent) => void) {
+    this.listeners.push(fn);
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== fn);
+    };
+  }
+  private emit(e: EngineEvent) {
+    for (const l of this.listeners) l(e);
+  }
+
+  // ───────────── Input ─────────────
+  setAim(x: number, y: number) {
+    let a = Math.atan2(SHOOTER_Y - y, x - SHOOTER_X);
+    if (a < MIN_ANGLE) a = MIN_ANGLE;
+    if (a > Math.PI - MIN_ANGLE) a = Math.PI - MIN_ANGLE;
+    if (y > SHOOTER_Y + 30) a = x < SHOOTER_X ? Math.PI - MIN_ANGLE : MIN_ANGLE;
+    this.aimAngle = a;
+    this.computeGuide();
+  }
+
+  swap() {
+    if (this.status !== "ready") return;
+    const c = this.current.color;
+    this.current.color = this.next.color;
+    this.next.color = c;
+  }
+
+  applyBooster(kind: Booster): boolean {
+    if (this.status !== "ready") return false;
+    if (kind === "laser") {
+      if (this.laserShots > 0) return false;
+      this.laserShots = 3;
+      this.computeGuide();
+      return true;
+    }
+    if (this.current.special === kind) return false;
+    this.current.special = kind;
+    return true;
+  }
+
+  shoot(): boolean {
+    if (this.status !== "ready" || this.cooldown > 0) return false;
+    if (this.cfg.maxShots > 0 && this.shotsLeft <= 0) return false;
+    const a = this.aimAngle;
+    this.projectile = {
+      x: SHOOTER_X,
+      y: SHOOTER_Y,
+      vx: Math.cos(a) * PROJECTILE_SPEED,
+      vy: -Math.sin(a) * PROJECTILE_SPEED,
+      color: this.current.color,
+      special: this.current.special,
+      bounces: 0,
+    };
+    this.trail.length = 0;
+    this.status = "flying";
+    this.shotsFired++;
+    if (this.cfg.maxShots > 0) this.shotsLeft--;
+    if (this.laserShots > 0) this.laserShots--;
+    this.emit({ type: "shoot" });
+    return true;
+  }
+
+  // ───────────── Update ─────────────
+  update(dt: number) {
+    dt = Math.min(dt, 0.05);
+    this.time += dt;
+    if (this.cooldown > 0) this.cooldown -= dt;
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 3);
+    if (this.dropAnim < 0) this.dropAnim = Math.min(0, this.dropAnim + dt * ROW_H * 4);
+    if (this.flashT > 0) this.flashT -= dt;
+    if (this.fever) {
+      this.feverTime -= dt;
+      if (this.feverTime <= 0) {
+        this.fever = false;
+        this.feverTime = 0;
+      }
+    }
+
+    if (this.status === "intro") {
+      this.introT += dt;
+      if (this.introT >= 0.7) this.status = "ready";
+    }
+
+    if (this.status === "flying" && this.projectile) {
+      const p = this.projectile;
+      const steps = Math.ceil((PROJECTILE_SPEED * dt) / (R * 0.5));
+      const sdt = dt / steps;
+      for (let i = 0; i < steps; i++) {
+        p.x += p.vx * sdt;
+        p.y += p.vy * sdt;
+        if (p.x - R < 0) {
+          p.x = R;
+          p.vx = -p.vx;
+          p.bounces++;
+          this.emit({ type: "bounce" });
+        } else if (p.x + R > LOGICAL_W) {
+          p.x = LOGICAL_W - R;
+          p.vx = -p.vx;
+          p.bounces++;
+          this.emit({ type: "bounce" });
+        }
+        const hit = this.findHit(p.x, p.y);
+        if (hit !== undefined) {
+          this.land(p, hit);
+          break;
+        }
+        if (p.y < -R * 2 || p.y > LOGICAL_H + R * 2) {
+          this.projectile = null;
+          this.status = "ready";
+          break;
+        }
+      }
+      if (this.projectile) {
+        this.trail.push({ x: p.x, y: p.y });
+        if (this.trail.length > 10) this.trail.shift();
+      }
+    }
+
+    // particles
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const q = this.particles[i];
+      q.life -= dt;
+      if (q.life <= 0) {
+        this.particles[i] = this.particles[this.particles.length - 1];
+        this.particles.pop();
+        continue;
+      }
+      q.x += q.vx * dt;
+      q.y += q.vy * dt;
+      q.vy += (q.kind === 2 ? 0 : 520) * dt;
+      q.vx *= 0.985;
+    }
+    for (let i = this.falling.length - 1; i >= 0; i--) {
+      const f = this.falling[i];
+      f.life += dt;
+      f.vy += 1400 * dt;
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+      f.rot += f.vx * 0.01 * dt;
+      if (f.y > LOGICAL_H + R * 2) {
+        this.falling.splice(i, 1);
+      }
+    }
+    for (let i = this.popups.length - 1; i >= 0; i--) {
+      const u = this.popups[i];
+      u.life -= dt;
+      u.y -= 40 * dt;
+      if (u.life <= 0) this.popups.splice(i, 1);
+    }
+  }
+
+  private findHit(px: number, py: number): GridBubble | null | undefined {
+    if (py - R <= TOP_Y + this.dropAnim) return null; // ceiling
+    const hitR2 = (2 * R - 3) ** 2;
+    for (const b of this.grid.values()) {
+      const dx = cellX(b.row, b.col, this.parity) - px;
+      const dy = cellY(b.row) - py;
+      if (dx * dx + dy * dy < hitR2) return b;
+    }
+    return undefined;
+  }
+
+  private findSnapCell(px: number, py: number): { row: number; col: number } {
+    const rowF = (py - TOP_Y - R) / ROW_H;
+    let best: { row: number; col: number; d: number; ok: boolean } | null = null;
+    for (let row = Math.max(0, Math.floor(rowF) - 1); row <= Math.ceil(rowF) + 1; row++) {
+      const cols = colsInRow(row, this.parity);
       for (let col = 0; col < cols; col++) {
-        const color = usedColors[Math.floor(Math.random() * usedColors.length)];
-        bubbles.push(buildBubble(row, col, color, canvasWidth, topOffset));
+        if (this.grid.has(key(row, col))) continue;
+        const dx = cellX(row, col, this.parity) - px;
+        const dy = cellY(row) - py;
+        const d = dx * dx + dy * dy;
+        const ok = row === 0 || neighbors(row, col, this.parity).some(([r, c]) => this.grid.has(key(r, c)));
+        if (!ok) continue;
+        if (!best || d < best.d) best = { row, col, d, ok };
       }
     }
-    return bubbles;
+    if (best) return { row: best.row, col: best.col };
+    const row = Math.max(0, Math.round(rowF));
+    const cols = colsInRow(row, this.parity);
+    return { row, col: Math.max(0, Math.min(cols - 1, Math.round((px - R - ((row + this.parity) % 2 ? R : 0)) / (2 * R)))) };
   }
 
-  const lvl = LEVELS[Math.min(levelIdx, LEVELS.length - 1)];
-  const usedColors = BUBBLE_COLORS.slice(0, lvl.colors);
+  // ───────────── Landing & resolution ─────────────
+  private land(p: Projectile, hit: GridBubble | null) {
+    const cell = this.findSnapCell(p.x, p.y);
+    const placed: GridBubble = { row: cell.row, col: cell.col, color: p.color, special: p.special === "bomb" || p.special === "rainbow" ? p.special : undefined };
+    this.grid.set(key(cell.row, cell.col), placed);
+    this.projectile = null;
+    this.current.special = undefined;
+    this.status = "resolving";
 
-  if (levelIdx === 0) {
-    return generateTutorialGrid(canvasWidth, topOffset);
-  }
+    const px = cellX(placed.row, placed.col, this.parity);
+    const py = cellY(placed.row);
+    const toRemove = new Map<number, GridBubble>();
+    const queue: GridBubble[] = [];
+    let triggeredSpecial: Special | undefined;
 
-  for (let row = 0; row < lvl.rows; row++) {
-    const cols = row % 2 === 0 ? GRID_COLS : GRID_COLS - 1;
-    for (let col = 0; col < cols; col++) {
-      const color = usedColors[Math.floor(Math.random() * usedColors.length)];
-      const bubble = buildBubble(row, col, color, canvasWidth, topOffset);
-      if (row > 1 && Math.random() < SPECIAL_BUBBLE_CHANCE) {
-        bubble.special = pickSpecial();
+    const enqueueSpecial = (b: GridBubble) => {
+      if (b.special === "bomb") {
+        triggeredSpecial = triggeredSpecial ?? "bomb";
+        const bx = cellX(b.row, b.col, this.parity), by = cellY(b.row);
+        const rad2 = (4 * R + 2) ** 2;
+        for (const o of this.grid.values()) {
+          const dx = cellX(o.row, o.col, this.parity) - bx, dy = cellY(o.row) - by;
+          if (dx * dx + dy * dy <= rad2 && !toRemove.has(key(o.row, o.col))) {
+            toRemove.set(key(o.row, o.col), o);
+            queue.push(o);
+          }
+        }
+        this.shake = Math.max(this.shake, 1);
+        this.flash("#ffb347");
+        this.emit({ type: "shake", power: 1 });
+      } else if (b.special === "lightning") {
+        triggeredSpecial = triggeredSpecial ?? "lightning";
+        for (const o of this.grid.values()) {
+          if (o.row === b.row && !toRemove.has(key(o.row, o.col))) {
+            toRemove.set(key(o.row, o.col), o);
+            queue.push(o);
+          }
+        }
+        this.shake = Math.max(this.shake, 0.6);
+        this.flash("#9be7ff");
+        this.emit({ type: "shake", power: 0.6 });
       }
-      bubbles.push(bubble);
+    };
+
+    // Direct hit on a bomb / lightning triggers it regardless of colour
+    if (hit && (hit.special === "bomb" || hit.special === "lightning")) {
+      toRemove.set(key(hit.row, hit.col), hit);
+      toRemove.set(key(placed.row, placed.col), placed);
+      queue.push(hit);
     }
-  }
-  return bubbles;
-}
-
-function generateTutorialGrid(canvasWidth: number, topOffset: number): Bubble[] {
-  const G = '#34C759'; const R = '#FF3B5C'; const B = '#007AFF'; const Y = '#FFCC00';
-  const cells = [
-    { row: 0, col: 3, color: G }, { row: 0, col: 4, color: G }, { row: 0, col: 5, color: G },
-    { row: 0, col: 6, color: G }, { row: 0, col: 7, color: G },
-    { row: 1, col: 3, color: R }, { row: 1, col: 4, color: R }, { row: 1, col: 5, color: R },
-    { row: 1, col: 6, color: R }, { row: 1, col: 7, color: R },
-    { row: 2, col: 4, color: R }, { row: 2, col: 5, color: R }, { row: 2, col: 6, color: R },
-    { row: 3, col: 3, color: R }, { row: 3, col: 4, color: R }, { row: 3, col: 5, color: R },
-    { row: 3, col: 6, color: R }, { row: 3, col: 7, color: R },
-    { row: 4, col: 5, color: R },
-    { row: 5, col: 1, color: B }, { row: 5, col: 2, color: B },
-    { row: 5, col: 3, color: Y }, { row: 5, col: 4, color: Y }, { row: 5, col: 5, color: Y },
-    { row: 5, col: 6, color: G }, { row: 5, col: 7, color: G },
-  ];
-  return cells.map(c => buildBubble(c.row, c.col, c.color, canvasWidth, topOffset));
-}
-
-function generateDailyGrid(canvasWidth: number, topOffset: number): Bubble[] {
-  const seed = getDailySeed();
-  const rng = seededRandom(seed);
-  const rows = 7;
-  const usedColors = BUBBLE_COLORS.slice(0, 6);
-  const bubbles: Bubble[] = [];
-  for (let row = 0; row < rows; row++) {
-    const cols = row % 2 === 0 ? GRID_COLS : GRID_COLS - 1;
-    for (let col = 0; col < cols; col++) {
-      const color = usedColors[Math.floor(rng() * usedColors.length)];
-      const bubble = buildBubble(row, col, color, canvasWidth, topOffset);
-      if (rng() < SPECIAL_BUBBLE_CHANCE) bubble.special = pickSpecial();
-      bubbles.push(bubble);
+    if (placed.special === "bomb") {
+      toRemove.set(key(placed.row, placed.col), placed);
+      queue.push(placed);
     }
-  }
-  return bubbles;
-}
 
-function seededRandom(seed: number) {
-  const m = 2 ** 31 - 1;
-  let state = seed % m;
-  if (state <= 0) state = 1;
-  return () => {
-    state = (Math.imul(state, 1103515245) + 12345) & m;
-    return state / m;
-  };
-}
-
-export function getDailySeed(): number {
-  const iso = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  return Number(iso);
-}
-
-const SPECIALS: BubbleSpecial[] = ['bomb', 'rainbow', 'lightning', 'freeze'];
-function pickSpecial(): BubbleSpecial {
-  return SPECIALS[Math.floor(Math.random() * SPECIALS.length)];
-}
-
-function buildBubble(row: number, col: number, color: string, canvasW: number, topOffset: number): Bubble {
-  return {
-    x: getBubbleX(col, row, canvasW),
-    y: getBubbleY(row, topOffset),
-    color, row, col,
-  };
-}
-
-export function repositionBubbles(bubbles: Bubble[], canvasWidth: number, topOffset: number): void {
-  bubbles.forEach(b => {
-    b.x = getBubbleX(b.col, b.row, canvasWidth);
-    b.y = getBubbleY(b.row, topOffset);
-  });
-}
-
-// ─── Danger line ───────────────────────────────────────────────────────────
-export function getDangerY(h: number): number {
-  return h - SHOOTER_FROM_BOTTOM - BUBBLE_RADIUS * 4;
-}
-
-export function getDangerProximity(h: number, bubbles: Bubble[]): number {
-  const active = bubbles.filter(b => !b.popping && !b.falling);
-  if (active.length === 0) return 0;
-  const lowest = Math.max(...active.map(b => b.y));
-  const dangerY = getDangerY(h);
-  return Math.max(0, Math.min(1, (lowest - TOP_OFFSET) / (dangerY - TOP_OFFSET)));
-}
-
-// ─── Color picking ─────────────────────────────────────────────────────────
-export function pickShooterColor(levelIdx: number, bubbles: Bubble[], preferExclude?: string): string {
-  const pool = getLevelColorPool(levelIdx);
-  const active = bubbles.filter(b => !b.popping && !b.falling);
-  const onGrid = [...new Set(active.map(b => b.color))];
-  const source = onGrid.length > 0 ? onGrid : [...pool];
-  let choices = preferExclude ? source.filter(c => c !== preferExclude) : [...source];
-  if (choices.length === 0) choices = [...source];
-  if (choices.length === 0) choices = [...pool];
-  return choices[Math.floor(Math.random() * choices.length)];
-}
-
-function getLevelColorPool(levelIdx: number): readonly string[] {
-  if (levelIdx === ENDLESS_LEVEL_IDX || levelIdx === DAILY_LEVEL_IDX) return BUBBLE_COLORS;
-  return BUBBLE_COLORS.slice(0, LEVELS[Math.min(levelIdx, LEVELS.length - 1)].colors);
-}
-
-export function getMaxShots(levelIdx: number): number {
-  if (levelIdx === ENDLESS_LEVEL_IDX) return ENDLESS_SHOTS_PER_WAVE;
-  if (levelIdx === DAILY_LEVEL_IDX) return LEVELS[4].maxShots;
-  return LEVELS[Math.min(levelIdx, LEVELS.length - 1)].maxShots;
-}
-
-export function getLevelLabel(levelIdx: number): string {
-  if (levelIdx === ENDLESS_LEVEL_IDX) return 'Бесконечный';
-  if (levelIdx === DAILY_LEVEL_IDX) return 'День';
-  return LEVELS[Math.min(levelIdx, LEVELS.length - 1)].label;
-}
-
-// ─── Special effects ───────────────────────────────────────────────────────
-function cellDistance(a: Bubble, b: Bubble): number {
-  return Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
-}
-
-export function applySpecialEffect(
-  bubble: Bubble, bubbles: Bubble[], shooterColor: string
-): { removed: Bubble[]; score: number; frozenShots?: number } {
-  const active = bubbles.filter(b => !b.popping && !b.falling);
-  const removed: Bubble[] = [];
-  let frozenShots: number | undefined;
-
-  switch (bubble.special) {
-    case 'bomb':
-      for (const b of active) {
-        if (cellDistance(bubble, b) <= 3) removed.push(b);
+    // Colour matching
+    let matchColor = placed.color;
+    if (placed.special === "rainbow") {
+      // choose the neighbour colour that produces the biggest group
+      let bestSize = 0;
+      const seenColors = new Set<number>();
+      for (const [r, c] of neighbors(placed.row, placed.col, this.parity)) {
+        const n = this.grid.get(key(r, c));
+        if (!n || n.color < 0 || seenColors.has(n.color)) continue;
+        seenColors.add(n.color);
+        const size = this.floodMatch(placed, n.color).size;
+        if (size > bestSize) {
+          bestSize = size;
+          matchColor = n.color;
+        }
       }
-      break;
-    case 'rainbow':
-      getNeighborCells(bubble.row, bubble.col).forEach(n => {
-        const nb = active.find(b => b.row === n.row && b.col === n.col);
-        if (nb && nb.color !== shooterColor) { nb.color = shooterColor; removed.push(nb); }
-      });
-      if (!removed.includes(bubble)) removed.push(bubble);
-      break;
-    case 'lightning':
-      for (const b of active) {
-        if (Math.abs(b.col - bubble.col) <= 1) removed.push(b);
-      }
-      break;
-    case 'freeze':
-      frozenShots = 5;
-      getNeighborCells(bubble.row, bubble.col).forEach(n => {
-        const nb = active.find(b => b.row === n.row && b.col === n.col);
-        if (nb) removed.push(nb);
-      });
-      if (!removed.includes(bubble)) removed.push(bubble);
-      break;
-  }
-
-  const unique = [...new Map(removed.map(b => [`${b.row},${b.col}`, b])).values()];
-  return { removed: unique, score: unique.length * 100, frozenShots };
-}
-
-export function addNewRowOnTop(
-  bubbles: Bubble[], levelIdx: number, canvasWidth: number, topOffset: number
-): Bubble[] {
-  const shifted = bubbles.filter(b => !b.popping && !b.falling).map(b => ({
-    ...b, row: b.row + 1, y: getBubbleY(b.row + 1, topOffset),
-  }));
-  const usedColors = levelIdx === ENDLESS_LEVEL_IDX ? BUBBLE_COLORS : BUBBLE_COLORS.slice(0, LEVELS[Math.min(levelIdx, LEVELS.length - 1)].colors);
-  const newRow: Bubble[] = [];
-  for (let col = 0; col < GRID_COLS; col++) {
-    newRow.push(buildBubble(0, col, usedColors[Math.floor(Math.random() * usedColors.length)], canvasWidth, topOffset));
-  }
-  return [...shifted, ...newRow];
-}
-
-export function getMaxRow(bubbles: Bubble[]): number {
-  const active = bubbles.filter(b => !b.popping && !b.falling);
-  if (active.length === 0) return 0;
-  return Math.max(...active.map(b => b.row));
-}
-
-// ─── Collision ─────────────────────────────────────────────────────────────
-export function checkCollision(proj: Projectile, bubbles: Bubble[]): Bubble | null {
-  for (const b of bubbles) {
-    if (b.popping || b.falling) continue;
-    const dx = proj.x - b.x;
-    const dy = proj.y - b.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < BUBBLE_RADIUS * 2) return b;
-  }
-  return null;
-}
-
-export function snapToGrid(
-  proj: Projectile, hit: Bubble | null, bubbles: Bubble[], canvasWidth: number, topOffset: number
-): { row: number; col: number; x: number; y: number } | null {
-  const candidates: { row: number; col: number; x: number; y: number; dist: number }[] = [];
-  const searchBubbles = hit ? [hit, ...bubbles] : bubbles;
-
-  for (const b of searchBubbles) {
-    if (b.popping || b.falling) continue;
-    for (const n of getNeighborCells(b.row, b.col)) {
-      if (n.row < 0 || n.col < 0 || n.col >= GRID_COLS) continue;
-      const occupied = bubbles.some(ob => !ob.popping && !ob.falling && ob.row === n.row && ob.col === n.col);
-      if (occupied) continue;
-      const cx = getBubbleX(n.col, n.row, canvasWidth);
-      const cy = getBubbleY(n.row, topOffset);
-      const dx = proj.x - cx;
-      const dy = proj.y - cy;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      candidates.push({ row: n.row, col: n.col, x: cx, y: cy, dist: d });
+      if (bestSize < MIN_MATCH) matchColor = -2; // stays as rainbow on grid
+      else placed.color = matchColor;
     }
-  }
-
-  if (candidates.length === 0) {
-    const col = Math.round((proj.x - getBubbleX(0, 0, canvasWidth)) / (BUBBLE_RADIUS * 2));
-    const clampedCol = Math.max(0, Math.min(GRID_COLS - 1, col));
-    return { row: 0, col: clampedCol, x: getBubbleX(clampedCol, 0, canvasWidth), y: getBubbleY(0, topOffset) };
-  }
-
-  candidates.sort((a, b) => a.dist - b.dist);
-  return candidates[0];
-}
-
-// ─── Match finding ─────────────────────────────────────────────────────────
-export function findMatches(row: number, col: number, color: string, bubbles: Bubble[]): Bubble[] {
-  const visited = new Set<string>();
-  const result: Bubble[] = [];
-  function dfs(r: number, c: number) {
-    const key = `${r},${c}`;
-    if (visited.has(key)) return;
-    visited.add(key);
-    const bubble = bubbles.find(b => !b.popping && !b.falling && b.row === r && b.col === c && b.color === color);
-    if (!bubble) return;
-    result.push(bubble);
-    getNeighborCells(r, c).forEach(n => dfs(n.row, n.col));
-  }
-  dfs(row, col);
-  return result;
-}
-
-export function findFloating(bubbles: Bubble[]): Bubble[] {
-  const active = bubbles.filter(b => !b.popping && !b.falling);
-  const connected = new Set<string>();
-  for (const b of active) {
-    if (b.row === 0) connected.add(`${b.row},${b.col}`);
-  }
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const b of active) {
-      const key = `${b.row},${b.col}`;
-      if (connected.has(key)) {
-        for (const n of getNeighborCells(b.row, b.col)) {
-          const nKey = `${n.row},${n.col}`;
-          if (!connected.has(nKey) && active.some(ab => ab.row === n.row && ab.col === n.col)) {
-            connected.add(nKey);
-            changed = true;
+    if (matchColor >= 0) {
+      const group = this.floodMatch(placed, matchColor);
+      if (group.size >= MIN_MATCH) {
+        for (const g of group.values()) {
+          if (!toRemove.has(key(g.row, g.col))) {
+            toRemove.set(key(g.row, g.col), g);
+            queue.push(g);
           }
         }
       }
     }
+
+    // chain specials
+    while (queue.length) {
+      const b = queue.pop()!;
+      enqueueSpecial(b);
+    }
+
+    if (toRemove.size === 0) {
+      this.combo = 0;
+      placed.wobble = 0.35;
+      this.emit({ type: "stick" });
+      this.emit({ type: "miss" });
+      this.afterShot();
+      return;
+    }
+
+    // Remove + score
+    this.combo++;
+    this.maxCombo = Math.max(this.maxCombo, this.combo);
+    if (!this.fever && this.combo >= FEVER_COMBO) {
+      this.fever = true;
+      this.feverTime = FEVER_DURATION;
+      this.emit({ type: "fever" });
+    }
+    const mult = this.multiplier();
+    let gained = 0;
+    for (const b of toRemove.values()) {
+      this.grid.delete(key(b.row, b.col));
+      this.spawnPop(cellX(b.row, b.col, this.parity), cellY(b.row), b.color < 0 ? "#9aa3b2" : COLORS[b.color], b.special);
+      gained += POINTS_PER_BUBBLE;
+    }
+    gained = Math.round(gained * mult);
+    this.popped += toRemove.size;
+    this.score += gained;
+    this.addPopup(px, py, `+${gained}`, this.combo > 1 ? "#FFD60A" : "#ffffff", this.combo > 1 ? 1.2 : 1);
+    if (this.combo > 1) this.addPopup(px, py - 26, `COMBO x${this.combo}`, "#FF9F0A", 0.9);
+    this.emit({ type: "pop", count: toRemove.size, combo: this.combo, special: triggeredSpecial, x: px, y: py });
+
+    // Floating clusters fall
+    const remaining = Array.from(this.grid.values());
+    const kept = new Set(pruneFloating(remaining, this.parity).map((b) => key(b.row, b.col)));
+    let fell = 0;
+    for (const b of remaining) {
+      if (kept.has(key(b.row, b.col))) continue;
+      this.grid.delete(key(b.row, b.col));
+      fell++;
+      this.falling.push({
+        x: cellX(b.row, b.col, this.parity),
+        y: cellY(b.row),
+        vx: (this.rng.next() - 0.5) * 240,
+        vy: -120 - this.rng.next() * 160,
+        rot: 0,
+        color: b.color,
+        special: b.special,
+        life: 0,
+      });
+    }
+    if (fell > 0) {
+      const bonus = Math.round(fell * POINTS_PER_BUBBLE * FALL_BONUS_MULT * mult);
+      this.score += bonus;
+      this.popped += fell;
+      this.addPopup(LOGICAL_W / 2, DANGER_Y - 60, `DROP +${bonus}`, "#64D2FF", 1.25);
+      this.emit({ type: "fall", count: fell });
+    }
+    this.afterShot();
   }
-  return active.filter(b => !connected.has(`${b.row},${b.col}`));
-}
 
-// ─── Particles ─────────────────────────────────────────────────────────────
-export function spawnParticles(x: number, y: number, color: string, count = 12): ParticleEffect[] {
-  const particles: ParticleEffect[] = [];
-  for (let i = 0; i < count; i++) {
-    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-    const speed = 2 + Math.random() * 3;
-    particles.push({
-      x, y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 1,
-      color, life: 25 + Math.floor(Math.random() * 15), maxLife: 40, size: 3 + Math.random() * 3,
-    });
-  }
-  return particles;
-}
-
-// ─── Drawing ───────────────────────────────────────────────────────────────
-function shadeColor(color: string, percent: number): string {
-  const num = parseInt(color.replace('#', ''), 16);
-  const r = Math.min(255, Math.max(0, ((num >> 16) & 0xff) + percent));
-  const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + percent));
-  const b = Math.min(255, Math.max(0, (num & 0xff) + percent));
-  return `rgb(${r},${g},${b})`;
-}
-
-export function drawBubble(
-  ctx: CanvasRenderingContext2D, x: number, y: number, color: string,
-  radius: number, alpha = 1, glowIntensity = 0, special?: BubbleSpecial, frame = 0
-): void {
-  ctx.save();
-  ctx.globalAlpha = alpha;
-
-  if (special === 'bomb') { drawBombBubble(ctx, x, y, radius, frame, glowIntensity); ctx.restore(); return; }
-  if (special === 'rainbow') { drawRainbowBubble(ctx, x, y, radius, frame, glowIntensity); ctx.restore(); return; }
-  if (special === 'lightning') { drawLightningBubble(ctx, x, y, radius, frame, glowIntensity); ctx.restore(); return; }
-  if (special === 'freeze') { drawFreezeBubble(ctx, x, y, radius, frame, glowIntensity); ctx.restore(); return; }
-
-  drawStandardBubble(ctx, x, y, color, radius, glowIntensity);
-  ctx.restore();
-}
-
-function drawStandardBubble(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, radius: number, glowIntensity: number) {
-  if (glowIntensity > 0) { ctx.shadowBlur = 20 * glowIntensity; ctx.shadowColor = color; }
-  ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fillStyle = shadeColor(color, -40); ctx.fill();
-  ctx.beginPath(); ctx.arc(x, y, radius - 2, 0, Math.PI * 2);
-  const grad = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, radius * 0.05, x, y, radius);
-  grad.addColorStop(0, shadeColor(color, 60));
-  grad.addColorStop(0.5, color);
-  grad.addColorStop(1, shadeColor(color, -30));
-  ctx.fillStyle = grad; ctx.fill();
-  ctx.beginPath(); ctx.arc(x - radius * 0.28, y - radius * 0.3, radius * 0.28, 0, Math.PI * 2);
-  const shineGrad = ctx.createRadialGradient(x - radius * 0.28, y - radius * 0.32, 0, x - radius * 0.28, y - radius * 0.3, radius * 0.28);
-  shineGrad.addColorStop(0, 'rgba(255,255,255,0.7)');
-  shineGrad.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = shineGrad; ctx.fill();
-}
-
-function drawBombBubble(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, frame: number, glowIntensity: number) {
-  const pulse = 0.5 + 0.5 * Math.sin(frame * 0.15);
-  ctx.shadowBlur = 15 + glowIntensity * 10; ctx.shadowColor = '#ff6600';
-  ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fillStyle = '#1a1a1a'; ctx.fill();
-  ctx.beginPath(); ctx.arc(x, y, radius - 3, 0, Math.PI * 2);
-  const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
-  grad.addColorStop(0, `rgba(255,100,0,${0.3 + pulse * 0.4})`);
-  grad.addColorStop(1, '#111');
-  ctx.fillStyle = grad; ctx.fill();
-  ctx.beginPath(); ctx.arc(x, y, radius * 0.25 * pulse, 0, Math.PI * 2);
-  ctx.fillStyle = `rgba(255,150,0,${0.6 + pulse * 0.4})`; ctx.fill();
-}
-
-function drawRainbowBubble(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, frame: number, glowIntensity: number) {
-  const hue = (frame * 2) % 360;
-  if (glowIntensity > 0) { ctx.shadowBlur = 20 * glowIntensity; ctx.shadowColor = `hsl(${hue},100%,60%)`; }
-  ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
-  const grad = ctx.createRadialGradient(x - radius * 0.2, y - radius * 0.2, 0, x, y, radius);
-  grad.addColorStop(0, `hsl(${hue},100%,75%)`);
-  grad.addColorStop(0.5, `hsl(${(hue + 60) % 360},100%,55%)`);
-  grad.addColorStop(1, `hsl(${(hue + 120) % 360},100%,40%)`);
-  ctx.fillStyle = grad; ctx.fill();
-  ctx.beginPath(); ctx.arc(x - radius * 0.25, y - radius * 0.28, radius * 0.22, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
-}
-
-function drawLightningBubble(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, frame: number, glowIntensity: number) {
-  ctx.shadowBlur = 12 + glowIntensity * 8; ctx.shadowColor = '#00aaff';
-  drawStandardBubble(ctx, x, y, '#007AFF', radius, 0);
-  ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5;
-  for (let i = 0; i < 3; i++) {
-    const offset = Math.sin(frame * 0.2 + i) * 4;
-    ctx.beginPath(); ctx.moveTo(x - 5 + offset, y - 8); ctx.lineTo(x + 3 + offset, y - 1);
-    ctx.lineTo(x - 2 + offset, y + 1); ctx.lineTo(x + 6 + offset, y + 8); ctx.stroke();
-  }
-}
-
-function drawFreezeBubble(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, frame: number, glowIntensity: number) {
-  ctx.shadowBlur = 10 + glowIntensity * 8; ctx.shadowColor = '#88ddff';
-  drawStandardBubble(ctx, x, y, '#88ddff', radius, 0);
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1;
-  const rot = frame * 0.02;
-  for (let i = 0; i < 6; i++) {
-    const a = rot + (Math.PI * 2 * i) / 6;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(a) * radius * 0.7, y + Math.sin(a) * radius * 0.7);
-    ctx.stroke();
-  }
-}
-
-export function drawPopAnimation(
-  ctx: CanvasRenderingContext2D, x: number, y: number, color: string,
-  popFrame: number, totalFrames: number, special?: BubbleSpecial
-): void {
-  const progress = popFrame / totalFrames;
-  const alpha = 1 - progress;
-  const scale = 1 + progress * 0.5;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-  drawBubble(ctx, 0, 0, color, BUBBLE_RADIUS * (1 - progress * 0.5), 1, 0, special);
-  ctx.restore();
-}
-
-export function drawParticle(ctx: CanvasRenderingContext2D, p: ParticleEffect) {
-  const alpha = p.life / p.maxLife;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.beginPath(); ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
-  ctx.fillStyle = p.color; ctx.shadowBlur = 8; ctx.shadowColor = p.color; ctx.fill();
-  ctx.restore();
-}
-
-export function drawSpecialTelegraph(
-  ctx: CanvasRenderingContext2D,
-  zones: { x: number; y: number; r: number; kind: BubbleSpecial }[],
-  intensity: number, frame: number
-): void {
-  zones.forEach(z => {
-    ctx.save();
-    ctx.globalAlpha = 0.15 * intensity + 0.05 * Math.sin(frame * 0.1);
-    ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2);
-    const color = z.kind === 'bomb' ? '#ff6600' : z.kind === 'lightning' ? '#00aaff' : z.kind === 'rainbow' ? '#ff00ff' : '#88ddff';
-    ctx.fillStyle = color; ctx.fill();
-    ctx.strokeStyle = color; ctx.globalAlpha = 0.3 * intensity; ctx.lineWidth = 1; ctx.stroke();
-    ctx.restore();
-  });
-}
-
-export function getSpecialTelegraph(
-  bubble: Bubble, canvasWidth: number, topOffset: number
-): { x: number; y: number; r: number; kind: BubbleSpecial }[] {
-  if (!bubble.special) return [];
-  const zones: { x: number; y: number; r: number; kind: BubbleSpecial }[] = [];
-  switch (bubble.special) {
-    case 'bomb': zones.push({ x: bubble.x, y: bubble.y, r: BUBBLE_RADIUS * 4.2, kind: 'bomb' }); break;
-    case 'lightning':
-      for (let row = 0; row < MAX_GRID_ROWS; row++) {
-        const cols = row % 2 === 0 ? GRID_COLS : GRID_COLS - 1;
-        for (let col = 0; col < cols; col++) {
-          if (Math.abs(col - bubble.col) <= 1) {
-            zones.push({ x: getBubbleX(col, row, canvasWidth), y: getBubbleY(row, topOffset), r: BUBBLE_RADIUS * 0.95, kind: 'lightning' });
-          }
+  private floodMatch(start: GridBubble, color: number): Map<number, GridBubble> {
+    const out = new Map<number, GridBubble>();
+    const stack = [start];
+    out.set(key(start.row, start.col), start);
+    while (stack.length) {
+      const b = stack.pop()!;
+      for (const [r, c] of neighbors(b.row, b.col, this.parity)) {
+        const k = key(r, c);
+        const n = this.grid.get(k);
+        if (!n || out.has(k)) continue;
+        if (n.color === color || n.special === "rainbow") {
+          out.set(k, n);
+          stack.push(n);
         }
       }
-      break;
-    case 'rainbow':
-      getNeighborCells(bubble.row, bubble.col).forEach(n => {
-        zones.push({ x: getBubbleX(n.col, n.row, canvasWidth), y: getBubbleY(n.row, topOffset), r: BUBBLE_RADIUS * 1.2, kind: 'rainbow' });
-      });
-      break;
-    case 'freeze':
-      getNeighborCells(bubble.row, bubble.col).forEach(n => {
-        zones.push({ x: getBubbleX(n.col, n.row, canvasWidth), y: getBubbleY(n.row, topOffset), r: BUBBLE_RADIUS * 1.2, kind: 'freeze' });
-      });
-      break;
-  }
-  return zones;
-}
-
-export function findAimedSpecialBubble(
-  startX: number, startY: number, angle: number,
-  canvasWidth: number, canvasHeight: number, bubbles: Bubble[]
-): Bubble | null {
-  const aimPts = getAimPoints(startX, startY, angle, canvasWidth, canvasHeight, 8);
-  const specials = bubbles.filter(b => b.special && !b.popping && !b.falling);
-  if (specials.length === 0 || aimPts.length === 0) return null;
-  let best: Bubble | null = null;
-  let bestDist = Infinity;
-  for (const sp of specials) {
-    for (const pt of aimPts) {
-      const dx = sp.x - pt.x; const dy = sp.y - pt.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < bestDist && d < BUBBLE_RADIUS * 5) { bestDist = d; best = sp; }
     }
+    return out;
   }
-  return best;
-}
 
-export function getAimPoints(
-  startX: number, startY: number, angle: number,
-  canvasWidth: number, _canvasHeight: number, _steps = 5
-): { x: number; y: number }[] {
-  const points: { x: number; y: number }[] = [];
-  let x = startX, y = startY;
-  let vx = Math.cos(angle) * BUBBLE_SPEED;
-  let vy = Math.sin(angle) * BUBBLE_SPEED;
-  const stepSize = 15;
-  for (let i = 0; i < 300; i++) {
-    x += vx; y += vy;
-    if (x - BUBBLE_RADIUS < 0) { x = BUBBLE_RADIUS; vx = -vx; }
-    else if (x + BUBBLE_RADIUS > canvasWidth) { x = canvasWidth - BUBBLE_RADIUS; vx = -vx; }
-    if (i % stepSize === 0) points.push({ x, y });
-    if (y < 0) break;
+  private afterShot() {
+    // Endless waves
+    if (this.cfg.mode === "endless") {
+      if (this.grid.size === 0) {
+        this.score += 5000;
+        this.addPopup(LOGICAL_W / 2, LOGICAL_H / 2, "CLEAR! +5000", "#30D158", 1.5);
+        for (let i = 0; i < 3; i++) this.pushRow();
+      }
+      this.shotsToNextWave--;
+      if (this.shotsToNextWave <= 0) {
+        this.wave++;
+        this.colorsAvailable = Math.min(COLORS.length, 4 + Math.floor(this.wave / 4));
+        this.shotsToNextWave = Math.max(4, 8 - Math.floor(this.wave / 3));
+        this.pushRow();
+        this.emit({ type: "wave", wave: this.wave });
+      }
+    }
+
+    // Lose by danger line
+    for (const b of this.grid.values()) {
+      if (cellY(b.row) + R >= DANGER_Y) {
+        this.finish("lost");
+        return;
+      }
+    }
+    // Win
+    if (this.cfg.mode !== "endless" && this.grid.size === 0) {
+      const ratio = this.cfg.maxShots > 0 ? this.shotsLeft / this.cfg.maxShots : 1;
+      this.stars = ratio >= STAR_THRESHOLDS.three ? 3 : ratio >= STAR_THRESHOLDS.two ? 2 : 1;
+      const bonus = this.shotsLeft * 50;
+      this.score += bonus;
+      if (bonus > 0) this.addPopup(LOGICAL_W / 2, LOGICAL_H / 2, `BONUS +${bonus}`, "#FFD60A", 1.4);
+      this.finish("won");
+      return;
+    }
+    if (this.cfg.maxShots > 0 && this.shotsLeft <= 0) {
+      this.finish("lost");
+      return;
+    }
+
+    this.current = { color: this.next.color };
+    this.next = { color: this.pickColor(this.current.color) };
+    this.status = "ready";
+    this.cooldown = 0.1;
+    this.computeGuide();
   }
-  return points;
+
+  private finish(s: "won" | "lost") {
+    this.status = s;
+    if (s === "won") this.emit({ type: "won", stars: this.stars, score: this.score });
+    else this.emit({ type: "lost", score: this.score });
+  }
+
+  private pushRow() {
+    const moved: GridBubble[] = [];
+    for (const b of this.grid.values()) {
+      b.row += 1;
+      moved.push(b);
+    }
+    this.grid.clear();
+    this.parity ^= 1;
+    for (const b of moved) this.grid.set(key(b.row, b.col), b);
+    for (const b of generateEndlessRow(0, this.parity, this.colorsAvailable, this.rng, 0.06)) this.grid.set(key(0, b.col), b);
+    this.dropAnim = -ROW_H;
+  }
+
+  private pickColor(exclude: number): number {
+    const onGrid = new Set<number>();
+    for (const b of this.grid.values()) if (b.color >= 0) onGrid.add(b.color);
+    let pool = onGrid.size > 0 ? Array.from(onGrid) : Array.from({ length: this.colorsAvailable }, (_, i) => i);
+    if (pool.length > 1 && exclude >= 0 && this.rng.chance(0.6)) pool = pool.filter((c) => c !== exclude);
+    return pool[Math.floor(this.rng.next() * pool.length)];
+  }
+
+  private multiplier(): number {
+    const m = Math.min(5, 1 + (this.combo - 1) * 0.5);
+    return this.fever ? m * 2 : m;
+  }
+
+  private flash(color: string) {
+    this.flashColor = color;
+    this.flashT = 0.25;
+  }
+
+  private spawnPop(x: number, y: number, color: string, special?: Special) {
+    const n = special ? 18 : 9;
+    for (let i = 0; i < n; i++) {
+      const a = this.rng.next() * Math.PI * 2;
+      const sp = 90 + this.rng.next() * (special ? 320 : 200);
+      this.particles.push({
+        x, y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 60,
+        life: 0.45 + this.rng.next() * 0.4,
+        maxLife: 0.85,
+        size: 2 + this.rng.next() * 4,
+        color,
+        kind: this.rng.chance(0.3) ? 1 : 0,
+      });
+    }
+    this.particles.push({ x, y, vx: 0, vy: 0, life: 0.35, maxLife: 0.35, size: R, color, kind: 2 });
+  }
+
+  private addPopup(x: number, y: number, text: string, color: string, scale: number) {
+    this.popups.push({ x, y, text, life: 1, maxLife: 1, color, scale });
+  }
+
+  // ───────────── Aim guide ─────────────
+  computeGuide() {
+    const pts: { x: number; y: number }[] = [{ x: SHOOTER_X, y: SHOOTER_Y }];
+    let x = SHOOTER_X, y = SHOOTER_Y;
+    let vx = Math.cos(this.aimAngle), vy = -Math.sin(this.aimAngle);
+    const maxBounces = this.laserShots > 0 ? 4 : 1;
+    let bounces = 0;
+    const step = 5;
+    let travelled = 0;
+    const maxTravel = this.laserShots > 0 ? 4000 : 1500;
+    this.guideCell = null;
+    while (travelled < maxTravel) {
+      x += vx * step;
+      y += vy * step;
+      travelled += step;
+      if (x - R < 0 || x + R > LOGICAL_W) {
+        x = x - R < 0 ? R : LOGICAL_W - R;
+        vx = -vx;
+        bounces++;
+        pts.push({ x, y });
+        if (bounces > maxBounces) break;
+      }
+      const hit = this.findHit(x, y);
+      if (hit !== undefined) {
+        pts.push({ x, y });
+        if (this.laserShots > 0) this.guideCell = this.findSnapCell(x, y);
+        break;
+      }
+    }
+    if (pts.length === 1) pts.push({ x, y });
+    this.guide = pts;
+  }
+
+  get danger(): number {
+    let lowest = TOP_Y;
+    for (const b of this.grid.values()) lowest = Math.max(lowest, cellY(b.row) + R);
+    return Math.max(0, Math.min(1, (lowest - TOP_Y) / (DANGER_Y - TOP_Y)));
+  }
+
+  snapshot(): EngineSnapshot {
+    return {
+      status: this.status,
+      score: this.score,
+      combo: this.combo,
+      maxCombo: this.maxCombo,
+      shotsLeft: this.shotsLeft,
+      maxShots: this.cfg.maxShots,
+      wave: this.wave,
+      shotsToNextWave: this.shotsToNextWave,
+      popped: this.popped,
+      fever: this.fever,
+      feverTime: this.feverTime,
+      laserShots: this.laserShots,
+      currentColor: this.current.color,
+      currentSpecial: this.current.special,
+      nextColor: this.next.color,
+      bubblesLeft: this.grid.size,
+      stars: this.stars,
+      danger: this.danger,
+    };
+  }
 }
 
-export function drawDangerPulse(ctx: CanvasRenderingContext2D, w: number, h: number, proximity: number, frame: number): void {
-  if (proximity < 0.5) return;
-  const intensity = (proximity - 0.5) * 2;
-  const pulse = 0.5 + 0.5 * Math.sin(frame * 0.1);
-  const dangerY = getDangerY(h);
-  ctx.save();
-  ctx.globalAlpha = intensity * 0.15 * pulse;
-  const grad = ctx.createLinearGradient(0, dangerY - 40, 0, dangerY + 20);
-  grad.addColorStop(0, 'rgba(255,0,0,0)');
-  grad.addColorStop(0.5, 'rgba(255,0,0,1)');
-  grad.addColorStop(1, 'rgba(255,0,0,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, dangerY - 40, w, 60);
-  ctx.restore();
-}
-
-export function drawCannonNozzle(
-  ctx: CanvasRenderingContext2D, sx: number, sy: number,
-  angle: number, color: string, glowPulse: number
-): void {
-  ctx.save();
-  ctx.translate(sx, sy);
-  ctx.rotate(angle + Math.PI / 2);
-  const w = 12; const h = 28;
-  ctx.fillStyle = 'rgba(100,50,150,0.8)';
-  ctx.fillRect(-w / 2, -h, w, h);
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.3 + glowPulse * 0.3;
-  ctx.fillRect(-w / 2 - 2, -h - 4, w + 4, 6);
-  ctx.restore();
-}
-
-export function drawScreenFlash(ctx: CanvasRenderingContext2D, w: number, h: number, alpha: number): void {
-  if (alpha <= 0.01) return;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, w, h);
-  ctx.restore();
-}
-
-export function drawTutorialAimGuide(
-  ctx: CanvasRenderingContext2D, sx: number, sy: number,
-  aimPts: { x: number; y: number }[], frame: number
-): void {
-  if (aimPts.length === 0) return;
-  const pulse = 0.5 + 0.5 * Math.sin(frame * 0.1);
-  ctx.save();
-  ctx.globalAlpha = 0.6 + pulse * 0.3;
-  ctx.setLineDash([8, 6]);
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = '#34C759';
-  ctx.shadowColor = '#34C759';
-  ctx.shadowBlur = 10;
-  ctx.beginPath();
-  ctx.moveTo(sx, sy - BUBBLE_RADIUS);
-  aimPts.forEach(pt => ctx.lineTo(pt.x, pt.y));
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  const lastPt = aimPts[aimPts.length - 1];
-  ctx.beginPath();
-  ctx.arc(lastPt.x, lastPt.y, BUBBLE_RADIUS + 4 + pulse * 3, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(52,199,89,0.5)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.restore();
-}
-
-export function isDailyCompleted(): boolean {
-  const today = new Date().toDateString();
-  return localStorage.getItem('dailyCompleted') === today;
-}
-
-export function markDailyCompleted(): void {
-  localStorage.setItem('dailyCompleted', new Date().toDateString());
-}
+export { GRID_COLS };

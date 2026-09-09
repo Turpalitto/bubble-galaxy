@@ -1,45 +1,43 @@
-export const BUBBLE_RADIUS = 22;
+export const LOGICAL_W = 460;
+export const LOGICAL_H = 760;
 export const GRID_COLS = 11;
-export const GRID_ROWS = 12;
-export const SHOOTER_Y_OFFSET = 100;
-export const BUBBLE_SPEED = 16;
+export const R = 20; // bubble radius
+export const ROW_H = R * Math.sqrt(3);
+export const TOP_Y = 64; // grid top (below HUD)
+export const SHOOTER_Y = LOGICAL_H - 86;
+export const DANGER_Y = SHOOTER_Y - R * 4.6;
+export const PROJECTILE_SPEED = 1150; // px per second (logical)
+export const MIN_ANGLE_DEG = 8;
 export const MIN_MATCH = 3;
 export const POINTS_PER_BUBBLE = 100;
-export const COMBO_MULTIPLIER = 1.5;
-export const SPECIAL_BUBBLE_CHANCE = 0.07;
-export const ENDLESS_LEVEL_IDX = 999;
-export const DAILY_LEVEL_IDX = 998;
-export const ENDLESS_SHOTS_PER_WAVE = 30;
-export const MAX_GRID_ROWS = 14;
-export const TOP_OFFSET = 30;
-export const SHOOTER_FROM_BOTTOM = 80;
-export const INTRO_FRAMES = 40;
+export const FALL_BONUS_MULT = 2;
+export const FEVER_COMBO = 5;
+export const FEVER_DURATION = 8; // seconds
+export const MAX_ROWS_VISIBLE = Math.floor((DANGER_Y - TOP_Y) / ROW_H);
 
-export const BUBBLE_COLORS = [
-  '#FF3B5C',
-  '#FF9500',
-  '#FFCC00',
-  '#34C759',
-  '#007AFF',
-  '#AF52DE',
-  '#FF2D55',
+export const COLORS = [
+  "#FF3B5C", // red
+  "#FF9F0A", // orange
+  "#FFD60A", // yellow
+  "#30D158", // green
+  "#0A84FF", // blue
+  "#BF5AF2", // purple
+  "#64D2FF", // cyan
 ] as const;
 
-export const LEVELS = [
-  { rows: 4, colors: 3, maxShots: 20, label: '1' },
-  { rows: 4, colors: 4, maxShots: 22, label: '2' },
-  { rows: 5, colors: 4, maxShots: 24, label: '3' },
-  { rows: 5, colors: 4, maxShots: 26, label: '4' },
-  { rows: 5, colors: 5, maxShots: 28, label: '5' },
-  { rows: 6, colors: 5, maxShots: 30, label: '6' },
-  { rows: 6, colors: 5, maxShots: 32, label: '7' },
-  { rows: 7, colors: 6, maxShots: 34, label: '8' },
-  { rows: 7, colors: 6, maxShots: 36, label: '9' },
-  { rows: 7, colors: 6, maxShots: 38, label: '10' },
-  { rows: 8, colors: 7, maxShots: 40, label: '11' },
-  { rows: 8, colors: 7, maxShots: 42, label: '12' },
-  { rows: 8, colors: 7, maxShots: 44, label: '13' },
-  { rows: 9, colors: 7, maxShots: 46, label: '14' },
-];
+export const COLOR_NAMES_RU = ["красный", "оранжевый", "жёлтый", "зелёный", "синий", "фиолетовый", "голубой"];
+export const COLOR_NAMES_EN = ["red", "orange", "yellow", "green", "blue", "purple", "cyan"];
 
-export const TUTORIAL_SHOOT_COLOR = '#34C759';
+export const CAMPAIGN_LEVELS = 40;
+export const ENDLESS_START_COLORS = 4;
+export const DAILY_ROWS = 7;
+export const DAILY_COLORS = 6;
+export const DAILY_SHOTS = 40;
+
+export const STAR_THRESHOLDS = { three: 0.4, two: 0.15 } as const;
+
+export const SCORE_CAPS = {
+  campaign: 250_000,
+  endless: 2_000_000,
+  daily: 300_000,
+} as const;
