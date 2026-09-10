@@ -31,3 +31,21 @@ Date: 2026-09-09
 ### Decision
 
 Core rules, levels and save format preserved; source PNG and silent audio archived outside public; production uses WebP plus non-silent victory WAV.
+
+## ADR-09101817 — Recorded decision
+
+Status: Accepted
+Date: 2026-09-10
+
+### Decision
+
+Rejected the full stale patch: excluded broken season prestige loop, replayable custom-level rewards, nonfunctional cosmetics/ghost replay, incorrect Yandex SDK URL, save debounce, static i18n split, and legacy-plugin removal.
+
+## ADR-09101827 — Recorded decision
+
+Status: Accepted
+Date: 2026-09-10
+
+### Decision
+
+Keep runtime art/audio, current promo PNGs and submission screenshots; exclude generated audit evidence and release ZIPs

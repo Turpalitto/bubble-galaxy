@@ -79,7 +79,7 @@
 - [x] `?grandpaDebug=1` — pickLineVerbose с причинами отсева реплик
 - [x] Unit: sound-registry (5), analytics (4), grandpa pickLineVerbose (4) — 460 всего
 - [x] e2e: 8 новых сценариев первой сессии + правка 5 существующих тестов, сломанных намеренными изменениями таймингов/экономики подсказок — 97 всего
-- [x] Документы: FIRST_SESSION_DESIGN.md, UX_ACCEPTANCE_CHECKLIST.md (новые); README/GAME_DESIGN/TECHNICAL_DESIGN/PROJECT_HANDOFF/AUDIT_REPORT/CHANGELOG/AUDIO_ASSETS_REQUIRED обновлены
+- [x] Документы: FIRST_SESSION_DESIGN.md, UX_ACCEPTANCE_CHECKLIST.md (новые); README/GAME_DESIGN/TECHNICAL_DESIGN/PROJECT_HANDOFF/CHANGELOG/AUDIO_ASSETS_REQUIRED обновлены
 - [x] typecheck+lint+test(460)+solve+build(865КБ)+verify:dist+e2e(97) — все зелёные
 
 ## Release audit findings (реализовано)

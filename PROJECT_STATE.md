@@ -3,7 +3,7 @@
 <!-- PROJECT-MEMORY-KIT:GENERATED -->
 ## Current status
 
-The consumer-audit remediation is implemented and locally accepted. All findings A01–A15 are addressed; see `CONSUMER_AUDIT_REMEDIATION.md` and `design-audit/remediation-2026-09-09/`.
+The 128-level game is release-ready locally. Runtime art and audio remain in `public/`; historical audit captures and obsolete release archives are intentionally excluded from the repository.
 
 ## Working features
 
@@ -14,10 +14,11 @@ The consumer-audit remediation is implemented and locally accepted. All findings
 
 ## Verification
 
-- Typecheck, lint, 543 unit tests and production build pass.
+- Typecheck, lint, 546 unit tests and production build pass.
 - Full Playwright: 274 passed, 1 expected desktop touch-only skip; desktop, mobile touch and WebKit projects covered.
+- Solver shards and `npm run solve` confirm all 128 campaign levels; `verify:dist` accepts 41 production files (2390.3 KiB).
 - New AAC files decode in Chromium through `AudioContext.decodeAudioData` as mono 48 kHz without errors.
-- Visual evidence covers menu, level 3, daily, garage, league and the 320 px HUD.
+- Submission screenshots remain in `screenshots/`; generated QA captures belong in ignored `test-results/` or `design-audit/` directories.
 
 ## Known limits
 
@@ -31,9 +32,8 @@ The consumer-audit remediation is implemented and locally accepted. All findings
 
 ## Recent significant changes
 
-- 2026-09-09: Закрыты A01-A20: переработаны menu/board окружение и responsive HUD, PNG runtime-art переведён в WebP, исправлены пути ассетов, беззвучный victory audio заменён WAV, выровнен микс эффектов, обновлены audit/e2e материалы.
-- 2026-09-09: Fixed asset URL resolution for CSS custom-property backgrounds so production loads /art instead of the nonexistent /assets/art path. Wide game gutters now show a dim illustrated yard with house, bushes, flowers, shed and path.
-- 2026-09-09: Moved the wide-desktop title into open sky, softened the portrait crop, restyled the live yard as a framed map, replaced flat game-screen grass with a dim illustrated yard backdrop, and cropped the painted board ground to its textured edge.
-- 2026-09-09: Unified responsive visuals; readable HUD and landscape; clarified onboarding, rewards and garage; painted board objects; complete audio registry; remediation report and screenshots
-- 2026-09-09: Resolved consumer-audit findings A01–A15; added harmonized board art and missing audio; completed fresh visual QA and full e2e acceptance.
-- 2026-09-08: Completed the consumer audit with reusable prompt, evidence captures and 15 findings.
+- 2026-09-10: Removed historical audit media, obsolete reports and the 100-level release archive; added current async solver, Endless worker, audio and accessibility improvements
+- 2026-09-10: Enabled viewport zoom and selectable form fields; added browser-safe async hints without a low state cap; moved endless generation to a worker with fallback; derived tutorial free-hint IDs from campaign metadata; added touchend audio unlock; extended regression tests.
+- 2026-09-10: Prepared a clean primary-branch snapshot, removed historical audit media and obsolete release archives, and retained only current runtime/publishing assets.
+- 2026-09-10: Added non-blocking Endless generation and hints, per-vehicle engine profiles, safer audio lifecycle handling, and browser accessibility fixes.
+- 2026-09-09: Completed responsive visual, audio and gameplay polish for the current campaign.

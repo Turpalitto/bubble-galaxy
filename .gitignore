@@ -2,6 +2,8 @@ node_modules/
 dist/
 test-results/
 playwright-report/
+design-audit/
+release/*.zip
 promo/ai-icon-src.png
 promo/ai-cover-src.png
 *.local

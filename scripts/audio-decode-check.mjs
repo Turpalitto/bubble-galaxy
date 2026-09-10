@@ -1,4 +1,4 @@
-import { readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 
 const names = readdirSync('public/audio').filter((name) => /\.(?:mp3|m4a|wav)$/i.test(name)).sort();
@@ -34,7 +34,8 @@ const results = await page.evaluate(async (files) => {
   return rows;
 }, names);
 await browser.close();
-writeFileSync('design-audit/final-playtest-2026-09-09/audio-analysis.json', `${JSON.stringify(results, null, 2)}\n`);
+mkdirSync('test-results', { recursive: true });
+writeFileSync('test-results/audio-analysis.json', `${JSON.stringify(results, null, 2)}\n`);
 const failed = results.filter((row) => !row.ok);
 const silent = results.filter((row) => row.ok && row.rmsDb <= -80);
 console.log(JSON.stringify({ files: results.length, failed, silent, victory: results.find((row) => row.name === 'victory_drive.wav') }, null, 2));

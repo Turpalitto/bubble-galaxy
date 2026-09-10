@@ -5,7 +5,7 @@
 ## Общие поля
 
 - Версия: `0.2.0`
-- Архив: `release/perepoloh-yandex-v0.2.0-100lvl.zip`
+- Архив: собрать актуальную production-версию командой `npm run build`, затем упаковать содержимое `dist/`.
 - Платформы: Desktop, Mobile → Android и TV. iOS также технически поддерживается, но выбирать его только при наличии обязательного Apple Team ID.
 - Ориентация: Любая.
 - Языки: русский, английский, турецкий.
@@ -24,9 +24,9 @@
 
 Название: `Переполох во дворе`
 
-SEO: `Парковочная головоломка со 100 уровнями: освобождайте машины, восстанавливайте уютный двор и собирайте все звёзды. Сможете пройти всех боссов?`
+SEO: `Парковочная головоломка со 128 уровнями: освобождайте машины, восстанавливайте уютный двор и собирайте все звёзды. Сможете пройти всех боссов?`
 
-Об игре: `Дедушкин автомобиль заперт в переполненном сельском дворе. Передвигайте легковушки, грузовики, тракторы и ящики, освобождайте путь к воротам и постепенно возвращайте двору уют. В кампании 100 вручную проверенных уровней, девять глав и боссы с особыми препятствиями — сложность растёт от уровня к уровню и не падает до самого финала. Собирайте до трёх звёзд, открывайте цвета машины, улучшайте двор и выполняйте достижения. Уровень дня, серии посещений, недельные кубки и два рейтинга дают новые цели после прохождения кампании.`
+Об игре: `Дедушкин автомобиль заперт в переполненном сельском дворе. Передвигайте легковушки, грузовики, тракторы и ящики, освобождайте путь к воротам и постепенно возвращайте двору уют. В кампании 128 проверенных уровней, десять глав и боссы с особыми препятствиями — сложность растёт от уровня к уровню и не падает до самого финала. Собирайте до трёх звёзд, открывайте цвета машины, улучшайте двор и выполняйте достижения. Уровень дня, серии посещений, недельные кубки и два рейтинга дают новые цели после прохождения кампании.`
 
 Короткое описание: `Освободите дедушкин автомобиль и восстановите весь двор.`
 
@@ -36,9 +36,9 @@ SEO: `Парковочная головоломка со 100 уровнями: �
 
 Title: `Yard Frenzy`
 
-SEO: `Solve 100 handcrafted parking puzzles, free Grandpa's car, restore a lively country yard, and collect every star. Can you beat every boss?`
+SEO: `Solve 128 handcrafted parking puzzles, free Grandpa's car, restore a lively country yard, and collect every star. Can you beat every boss?`
 
-About: `Grandpa's car is trapped in a crowded country yard. Slide cars, trucks, tractors, and crates to clear a route through the gate while the yard grows brighter with every milestone. The campaign contains 100 validated puzzles across nine chapters, including special boss boards — difficulty only ever climbs, never dips, all the way to the finale. Earn up to three stars, unlock car colours, restore new yard decorations, and complete achievements. A daily puzzle, visit streaks, weekly cups, and two leaderboards provide fresh goals after the campaign.`
+About: `Grandpa's car is trapped in a crowded country yard. Slide cars, trucks, tractors, and crates to clear a route through the gate while the yard grows brighter with every milestone. The campaign contains 128 validated puzzles across ten chapters, including special boss boards — difficulty only ever climbs, never dips, all the way to the finale. Earn up to three stars, unlock car colours, restore new yard decorations, and complete achievements. A daily puzzle, visit streaks, weekly cups, and two leaderboards provide fresh goals after the campaign.`
 
 Short description: `Free Grandpa's car and bring the whole country yard back to life.`
 
@@ -48,9 +48,9 @@ How to play: `Press a vehicle or crate and drag it along its own direction. Hori
 
 Başlık: `Bahçede Kargaşa`
 
-SEO: `100 özenle hazırlanmış park bulmacasını çöz, dedenin arabasını kurtar, köy bahçesini yenile ve bütün yıldızları topla. Bütün bossları geçebilir misin?`
+SEO: `128 özenle hazırlanmış park bulmacasını çöz, dedenin arabasını kurtar, köy bahçesini yenile ve bütün yıldızları topla. Bütün bossları geçebilir misin?`
 
-Oyun hakkında: `Dedenin arabası kalabalık köy bahçesinde mahsur kaldı. Kapıya giden yolu açmak için otomobilleri, kamyonları, traktörleri ve kasaları kaydır. Her dönüm noktasında bahçe biraz daha güzelleşir. Dokuz bölümde 100 doğrulanmış bulmaca ve özel boss alanları bulunur — zorluk hiç düşmeden finale kadar yükselir. Üç yıldıza kadar kazan, yeni araba renkleri aç, bahçeyi geliştir ve başarıları tamamla. Günlük bölüm, ziyaret serileri, haftalık kupalar ve iki sıralama, ana maceradan sonra da yeni hedefler sunar.`
+Oyun hakkında: `Dedenin arabası kalabalık köy bahçesinde mahsur kaldı. Kapıya giden yolu açmak için otomobilleri, kamyonları, traktörleri ve kasaları kaydır. Her dönüm noktasında bahçe biraz daha güzelleşir. On bölümde 128 doğrulanmış bulmaca ve özel boss alanları bulunur — zorluk hiç düşmeden finale kadar yükselir. Üç yıldıza kadar kazan, yeni araba renkleri aç, bahçeyi geliştir ve başarıları tamamla. Günlük bölüm, ziyaret serileri, haftalık kupalar ve iki sıralama, ana maceradan sonra da yeni hedefler sunar.`
 
 Kısa açıklama: `Dedenin arabasını kurtar ve köy bahçesini yeniden canlandır.`
 
