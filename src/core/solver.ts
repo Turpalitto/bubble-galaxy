@@ -152,7 +152,9 @@ export async function solveAsync(
   let sliceStart = Date.now();
   while (!step.done) {
     if (Date.now() - sliceStart >= yieldEveryMs) {
-      await new Promise<void>((resolve) => setImmediate(resolve));
+      // `setImmediate` есть в Node, но отсутствует в браузерах. `solveAsync`
+      // теперь безопасно использовать и из UI, сохраняя тот же yield event loop.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
       sliceStart = Date.now();
     }
     step = gen.next();
@@ -163,5 +165,11 @@ export async function solveAsync(
 /** Первый ход кратчайшего решения из текущего состояния (для подсказки). */
 export function hint(level: LevelDef, from: GameState): SolveMove | null {
   const res = solve(level, { from });
+  return res.solvable && res.path.length > 0 ? res.path[0] : null;
+}
+
+/** Асинхронная подсказка без искусственно заниженного лимита состояний. */
+export async function hintAsync(level: LevelDef, from: GameState): Promise<SolveMove | null> {
+  const res = await solveAsync(level, { from, yieldEveryMs: 12 });
   return res.solvable && res.path.length > 0 ? res.path[0] : null;
 }

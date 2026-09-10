@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyMove, createState } from '../src/core/game';
-import { hint, solve } from '../src/core/solver';
+import { hint, hintAsync, solve } from '../src/core/solver';
+import { LEVELS } from '../src/game/campaign';
 import { lvl, piece } from './helpers';
 
 describe('решатель', () => {
@@ -61,5 +62,16 @@ describe('решатель', () => {
     s = applyMove(level, s, h2.piece, h2.dx, h2.dy, h2.steps)!.state;
     expect(s.won).toBe(true);
     expect(s.moves).toBe(2);
+  });
+
+  it('асинхронная подсказка совпадает с синхронной', async () => {
+    const level = lvl({ pieces: [piece('T', 'target', 0, 2, 'h'), piece('A', 'car', 4, 1, 'v')] });
+    const state = createState(level);
+    await expect(hintAsync(level, state)).resolves.toEqual(hint(level, state));
+  });
+
+  it('асинхронная подсказка не обрезает поиск на сложном уровне', async () => {
+    const level = LEVELS.find((candidate) => candidate.id === 28)!;
+    await expect(hintAsync(level, createState(level))).resolves.not.toBeNull();
   });
 });

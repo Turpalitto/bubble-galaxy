@@ -7,6 +7,43 @@
  */
 import { SOUND_FILE_URLS, SampleLoader, type SoundFileKey, createBrowserFetcher } from './sound-registry';
 
+export type EngineKind = 'target' | 'car' | 'truck' | 'tractor';
+
+interface EngineProfile {
+  rate: number;
+  lowGain: number;
+  highGain: number;
+  accentHz: number;
+  accentGain: number;
+  roadHz: number;
+}
+
+const ENGINE_PROFILES: Record<EngineKind, EngineProfile> = {
+  target: { rate: 1.08, lowGain: 0.105, highGain: 0.085, accentHz: 76, accentGain: 0.012, roadHz: 1050 },
+  car: { rate: 1, lowGain: 0.11, highGain: 0.09, accentHz: 68, accentGain: 0.014, roadHz: 920 },
+  truck: { rate: 0.8, lowGain: 0.125, highGain: 0.07, accentHz: 50, accentGain: 0.02, roadHz: 700 },
+  tractor: { rate: 0.96, lowGain: 0.1, highGain: 0.065, accentHz: 39, accentGain: 0.024, roadHz: 560 }
+};
+
+const MOTOR_KEYS: SoundFileKey[] = [
+  'engine_idle',
+  'engine_low',
+  'engine_high',
+  'tractor_start',
+  'tractor_idle',
+  'tractor_move'
+];
+
+/** Переназначает AudioParam без накопления старых ramp-команд от pointermove. */
+const smoothParam = (param: AudioParam, value: number, at: number, timeConstant: number): void => {
+  if (typeof param.cancelAndHoldAtTime === 'function') param.cancelAndHoldAtTime(at);
+  else {
+    param.cancelScheduledValues(at);
+    param.setValueAtTime(param.value, at);
+  }
+  param.setTargetAtTime(value, at, timeConstant);
+};
+
 export type SoundName =
   | 'click'
   | 'pick'
@@ -46,18 +83,23 @@ export class GameAudio {
   private hidden = false;
   private ambientStarted = false;
   private engine: {
+    kind: EngineKind;
     osc: OscillatorNode;
     lfo: OscillatorNode;
     gain: GainNode;
     filter: BiquadFilterNode;
     road: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null;
   } | null = null;
-  private engineSample: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
+  private engineSample: { kind: EngineKind; src: AudioBufferSourceNode; gain: GainNode } | null = null;
   /** Пара лупов тяги (engine_low/high) с кроссфейдом по скорости drag'а. */
   private enginePair: {
+    kind: EngineKind;
     low: { src: AudioBufferSourceNode; gain: GainNode };
     high: { src: AudioBufferSourceNode; gain: GainNode };
+    accent: { osc: OscillatorNode; gain: GainNode; filter: BiquadFilterNode };
+    road: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null;
   } | null = null;
+  private lastEngineKind: EngineKind = 'car';
   private musicGain: GainNode | null = null;
   private musicTimer: number | null = null;
   private musicBar = 0;
@@ -82,7 +124,16 @@ export class GameAudio {
       this.ctx = new AudioContext();
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.5;
-      this.master.connect(this.ctx.destination);
+      // Один мягкий bus-компрессор ловит пики плотных исходников (лай,
+      // трактор, ворота), сохраняя атаку тихих эффектов и не допуская клиппинга
+      // при одновременном выезде, гудке и победной отбивке.
+      const limiter = this.ctx.createDynamicsCompressor();
+      limiter.threshold.value = -18;
+      limiter.knee.value = 12;
+      limiter.ratio.value = 4;
+      limiter.attack.value = 0.004;
+      limiter.release.value = 0.2;
+      this.master.connect(limiter).connect(this.ctx.destination);
       const len = this.ctx.sampleRate;
       this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
       const data = this.noiseBuf.getChannelData(0);
@@ -90,7 +141,9 @@ export class GameAudio {
       // Только dev: отсутствующий файл логируется один раз (не спамит консоль),
       // и только в development — в production console.warn о недостающих
       // сэмплах не нужен (файлов там либо нет совсем, либо они есть все).
-      this.sampleLoader = new SampleLoader(createBrowserFetcher(this.ctx), import.meta.env.DEV);
+      const browserAssetsAvailable = typeof location !== 'undefined';
+      this.sampleLoader = new SampleLoader(createBrowserFetcher(this.ctx), import.meta.env.DEV && browserAssetsAvailable);
+      if (browserAssetsAvailable) this.preloadSamples();
     } catch {
       this.ctx = null; // без звука игра остаётся играбельной
     }
@@ -98,6 +151,7 @@ export class GameAudio {
 
   setEnabled(on: boolean): void {
     this.enabled = on;
+    if (!on) this.engineStop();
   }
 
   setMusicEnabled(on: boolean): void {
@@ -130,6 +184,7 @@ export class GameAudio {
   /** Временный мьют на время рекламы (не трогает пользовательскую настройку). */
   duck(on: boolean): void {
     this.ducked = on;
+    if (on) this.engineStop();
     this.applyMasterGain();
   }
 
@@ -162,7 +217,25 @@ export class GameAudio {
   /** Требование платформы: при сворачивании страницы звук останавливается. */
   setHidden(on: boolean): void {
     this.hidden = on;
+    if (on) this.engineStop();
     this.applyMasterGain();
+  }
+
+  /**
+   * Моторы грузятся сразу после первого разрешённого ввода, остальные короткие
+   * эффекты — следом, когда закончился переход на уровень. Поэтому даже редкие
+   * ворота и победа с высокой вероятностью звучат реальной записью уже с первого
+   * раза, а стартовый кадр не конкурирует с двадцатью decodeAudioData сразу.
+   */
+  private preloadSamples(): void {
+    if (!this.sampleLoader) return;
+    for (const key of MOTOR_KEYS) void this.sampleLoader.load(key, SOUND_FILE_URLS[key]);
+    window.setTimeout(() => {
+      if (!this.sampleLoader) return;
+      for (const key of Object.keys(SOUND_FILE_URLS) as SoundFileKey[]) {
+        if (!MOTOR_KEYS.includes(key)) void this.sampleLoader.load(key, SOUND_FILE_URLS[key]);
+      }
+    }, 350);
   }
 
   /** Летний двор: редкое щебетание птиц фоном. */
@@ -291,26 +364,39 @@ export class GameAudio {
   engineSetIntensity(t: number): void {
     const k = Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0;
     if (this.enginePair && this.ctx) {
-      const { low, high } = this.enginePair;
-      low.gain.gain.linearRampToValueAtTime(0.16 * (1 - k), this.ctx.currentTime + 0.08);
-      high.gain.gain.linearRampToValueAtTime(0.13 * k, this.ctx.currentTime + 0.08);
+      const { kind, low, high, accent, road } = this.enginePair;
+      const p = ENGINE_PROFILES[kind];
+      const now = this.ctx.currentTime;
+      smoothParam(low.gain.gain, p.lowGain * (1 - 0.62 * k), now, 0.045);
+      smoothParam(high.gain.gain, p.highGain * Math.sqrt(k), now, 0.045);
+      smoothParam(low.src.playbackRate, p.rate * (1 + 0.035 * k), now, 0.055);
+      smoothParam(high.src.playbackRate, p.rate * (0.98 + 0.09 * k), now, 0.055);
+      smoothParam(accent.osc.frequency, p.accentHz * (1 + 0.52 * k), now, 0.05);
+      smoothParam(accent.gain.gain, p.accentGain * (0.55 + 0.45 * k), now, 0.05);
+      if (road) smoothParam(road.gain.gain, 0.008 + 0.034 * k, now, 0.04);
       return;
     }
     if (this.engineSample && this.ctx) {
-      this.engineSample.gain.gain.linearRampToValueAtTime(0.1 + 0.09 * k, this.ctx.currentTime + 0.08);
+      const { kind, src, gain } = this.engineSample;
+      const p = ENGINE_PROFILES[kind];
+      smoothParam(gain.gain, p.lowGain * (0.8 + 0.2 * k), this.ctx.currentTime, 0.05);
+      smoothParam(src.playbackRate, p.rate * (1 + 0.08 * k), this.ctx.currentTime, 0.05);
       return;
     }
     if (this.engine && this.ctx) {
-      const { osc, gain, filter, road } = this.engine;
-      osc.frequency.linearRampToValueAtTime(54 + 64 * k, this.ctx.currentTime + 0.08);
-      filter.frequency.linearRampToValueAtTime(230 + 520 * k, this.ctx.currentTime + 0.08);
-      gain.gain.linearRampToValueAtTime(0.045 + 0.065 * k, this.ctx.currentTime + 0.08);
-      road?.gain.gain.linearRampToValueAtTime(0.018 + 0.075 * k, this.ctx.currentTime + 0.08);
+      const { kind, osc, gain, filter, road } = this.engine;
+      const p = ENGINE_PROFILES[kind];
+      smoothParam(osc.frequency, p.accentHz * (1 + 0.62 * k), this.ctx.currentTime, 0.05);
+      smoothParam(filter.frequency, 210 + 500 * k, this.ctx.currentTime, 0.05);
+      smoothParam(gain.gain, 0.04 + 0.055 * k, this.ctx.currentTime, 0.05);
+      if (road) smoothParam(road.gain.gain, 0.012 + 0.05 * k, this.ctx.currentTime, 0.04);
     }
   }
 
-  engineStart(kind: 'vehicle' | 'tractor' = 'vehicle'): void {
+  engineStart(kind: EngineKind = 'car'): void {
     if (!this.enabled || this.suspended() || !this.ctx || !this.master || this.engine || this.engineSample || this.enginePair) return;
+    this.lastEngineKind = kind;
+    const profile = ENGINE_PROFILES[kind];
     const lowKey: SoundFileKey = kind === 'tractor' ? 'tractor_idle' : 'engine_low';
     const highKey: SoundFileKey = kind === 'tractor' ? 'tractor_move' : 'engine_high';
     // Прогреваем пару лупов на будущие заезды (не блокируя текущий запуск).
@@ -323,31 +409,67 @@ export class GameAudio {
     const lowBuf = this.sampleLoader?.get(lowKey);
     const highBuf = this.sampleLoader?.get(highKey);
     if (lowBuf && highBuf) {
-      const mkLoop = (buffer: AudioBuffer, gainValue: number) => {
+      const mkLoop = (buffer: AudioBuffer, gainValue: number, brightness: number) => {
         const src = this.ctx!.createBufferSource();
         src.buffer = buffer;
         src.loop = true;
+        src.playbackRate.value = profile.rate;
+        const filter = this.ctx!.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = brightness;
         const gain = this.ctx!.createGain();
         gain.gain.setValueAtTime(0, this.ctx!.currentTime);
         gain.gain.linearRampToValueAtTime(gainValue, this.ctx!.currentTime + 0.12);
-        src.connect(gain).connect(this.master!);
+        src.connect(filter).connect(gain).connect(this.master!);
         src.start();
         return { src, gain };
       };
-      this.enginePair = { low: mkLoop(lowBuf, 0.16), high: mkLoop(highBuf, 0) };
+      const accentOsc = this.ctx.createOscillator();
+      accentOsc.type = kind === 'tractor' || kind === 'truck' ? 'sawtooth' : 'triangle';
+      accentOsc.frequency.value = profile.accentHz;
+      const accentFilter = this.ctx.createBiquadFilter();
+      accentFilter.type = 'lowpass';
+      accentFilter.frequency.value = kind === 'tractor' ? 150 : 220;
+      const accentGain = this.ctx.createGain();
+      accentGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      accentGain.gain.linearRampToValueAtTime(profile.accentGain * 0.55, this.ctx.currentTime + 0.12);
+      accentOsc.connect(accentFilter).connect(accentGain).connect(this.master);
+      accentOsc.start();
+      let road: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
+      if (this.noiseBuf) {
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuf;
+        src.loop = true;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = profile.roadHz;
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0.008;
+        src.connect(filter).connect(gain).connect(this.master);
+        src.start();
+        road = { src, gain, filter };
+      }
+      this.enginePair = {
+        kind,
+        low: mkLoop(lowBuf, profile.lowGain, kind === 'truck' ? 1900 : 2600),
+        high: mkLoop(highBuf, 0, kind === 'tractor' ? 2200 : 3600),
+        accent: { osc: accentOsc, gain: accentGain, filter: accentFilter },
+        road
+      };
       return;
     }
-    const buffer = this.sampleLoader?.get('engine_idle');
+    const buffer = lowBuf ?? this.sampleLoader?.get('engine_idle');
     if (buffer) {
       const src = this.ctx.createBufferSource();
       src.buffer = buffer;
       src.loop = true;
+      src.playbackRate.value = profile.rate;
       const gain = this.ctx.createGain();
       gain.gain.setValueAtTime(0, this.ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.16, this.ctx.currentTime + 0.12);
+      gain.gain.linearRampToValueAtTime(profile.lowGain, this.ctx.currentTime + 0.12);
       src.connect(gain).connect(this.master);
       src.start();
-      this.engineSample = { src, gain };
+      this.engineSample = { kind, src, gain };
       return;
     }
     if (this.sampleLoader && !this.sampleLoader.hasFailed('engine_idle')) {
@@ -355,7 +477,7 @@ export class GameAudio {
     }
     const osc = this.ctx.createOscillator();
     osc.type = 'sawtooth';
-    osc.frequency.value = 52 + Math.random() * 8;
+    osc.frequency.value = profile.accentHz + Math.random() * 4;
     const lfo = this.ctx.createOscillator();
     lfo.frequency.value = 9;
     const lfoGain = this.ctx.createGain();
@@ -363,7 +485,7 @@ export class GameAudio {
     lfo.connect(lfoGain).connect(osc.frequency);
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = kind === 'tractor' ? 180 : 230;
+    filter.frequency.value = kind === 'tractor' ? 180 : kind === 'truck' ? 205 : 240;
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0, this.ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 0.12);
@@ -375,7 +497,7 @@ export class GameAudio {
       src.loop = true;
       const roadFilter = this.ctx.createBiquadFilter();
       roadFilter.type = 'bandpass';
-      roadFilter.frequency.value = kind === 'tractor' ? 520 : 820;
+      roadFilter.frequency.value = profile.roadHz;
       const roadGain = this.ctx.createGain();
       roadGain.gain.setValueAtTime(0, this.ctx.currentTime);
       roadGain.gain.linearRampToValueAtTime(0.018, this.ctx.currentTime + 0.12);
@@ -385,17 +507,23 @@ export class GameAudio {
     }
     osc.start();
     lfo.start();
-    this.engine = { osc, lfo, gain, filter, road };
+    this.engine = { kind, osc, lfo, gain, filter, road };
   }
 
   engineStop(): void {
     if (this.enginePair && this.ctx) {
-      const { low, high } = this.enginePair;
+      const { low, high, accent, road } = this.enginePair;
       this.enginePair = null;
       low.gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.15);
       high.gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.15);
       low.src.stop(this.ctx.currentTime + 0.2);
       high.src.stop(this.ctx.currentTime + 0.2);
+      accent.gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.12);
+      accent.osc.stop(this.ctx.currentTime + 0.2);
+      if (road) {
+        road.gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.12);
+        road.src.stop(this.ctx.currentTime + 0.18);
+      }
       return;
     }
     if (this.engineSample && this.ctx) {
@@ -521,15 +649,23 @@ export class GameAudio {
     if (!this.enabled || this.suspended() || !this.ctx) return;
     switch (name) {
       case 'click':
-        this.tone(660, 0.06, 'square', 0.12);
+        this.playSample('button_click', 0.22, () => this.tone(660, 0.06, 'square', 0.12));
         break;
       case 'pick':
         this.tone(vary(300), 0.08, 'triangle', 0.2, 0, 440);
         break;
       case 'move':
         // Не второй «мотор» после drag-лупа, а короткое оседание шин и подвески.
-        this.gravelRoll(vary(0.22), 0.11);
-        this.tone(vary(74), 0.1, 'sine', 0.09, 0.025, 52);
+        this.gravelRoll(vary(this.lastEngineKind === 'tractor' ? 0.3 : this.lastEngineKind === 'truck' ? 0.26 : 0.22), this.lastEngineKind === 'tractor' ? 0.14 : 0.1);
+        this.tone(
+          vary(ENGINE_PROFILES[this.lastEngineKind].accentHz),
+          this.lastEngineKind === 'tractor' ? 0.16 : 0.11,
+          'sine',
+          this.lastEngineKind === 'truck' || this.lastEngineKind === 'tractor' ? 0.12 : 0.085,
+          0.025,
+          ENGINE_PROFILES[this.lastEngineKind].accentHz * 0.7
+        );
+        if (this.lastEngineKind === 'tractor') this.tone(vary(118), 0.06, 'square', 0.045, 0.08, 82);
         break;
       case 'crateSlide':
         // Короче и суше «move»: ящик скребёт по земле, а не катится на
@@ -548,6 +684,7 @@ export class GameAudio {
           this.tone(vary(95), 0.1, 'sine', 0.35, 0, 60);
           this.noise(0.07, 0.12, 400);
         });
+        this.tone(vary(ENGINE_PROFILES[this.lastEngineKind].accentHz), 0.09, 'sine', 0.1, 0.01, 42);
         break;
       case 'bark':
         // Исходная запись очень плотная (около -0.7 dBFS RMS); прежний gain
@@ -608,16 +745,17 @@ export class GameAudio {
         this.tone(vary(70), 0.22, 'sine', 0.22, 0.1, 42);
         break;
       case 'honk':
-        this.tone(392, 0.14, 'square', 0.16);
-        this.tone(494, 0.2, 'square', 0.16, 0.12);
+        this.tone(370, 0.15, 'triangle', 0.13, 0, 392);
+        this.tone(466, 0.22, 'square', 0.1, 0.1, 494);
         break;
       case 'exitRev':
         // Прощальный рёв мотора на выезде за ворота: sawtooth-свип вверх по
         // тону (160→420Гц) — в отличие от тихого фонового гула engineStart()
         // (52-60Гц, рассчитан на долгий drag), этот громче и в среднем
         // диапазоне, чтобы не тонуть под honk и быть слышным на любых динамиках.
-        this.tone(160, 0.5, 'sawtooth', 0.16, 0, 420);
-        this.noise(0.4, 0.09, 1000, 0.03, 2200);
+        this.tone(145, 0.56, 'sawtooth', 0.12, 0, 390);
+        this.tone(72, 0.48, 'triangle', 0.1, 0.02, 155);
+        this.noise(0.46, 0.075, 900, 0.03, 2100);
         break;
       case 'win':
         [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.18, 'triangle', 0.2, i * 0.11));

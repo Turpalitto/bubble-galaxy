@@ -13,6 +13,15 @@ class FakeParam {
   exponentialRampToValueAtTime() {
     return this;
   }
+  setTargetAtTime() {
+    return this;
+  }
+  cancelAndHoldAtTime() {
+    return this;
+  }
+  cancelScheduledValues() {
+    return this;
+  }
 }
 class FakeNode {
   connect() {
@@ -46,6 +55,13 @@ class FakeBiquadFilter extends FakeNode {
   type = 'lowpass';
   frequency = new FakeParam();
 }
+class FakeCompressor extends FakeNode {
+  threshold = new FakeParam();
+  knee = new FakeParam();
+  ratio = new FakeParam();
+  attack = new FakeParam();
+  release = new FakeParam();
+}
 
 let oscillatorsCreated = 0;
 let bufferSourcesCreated = 0;
@@ -66,6 +82,9 @@ class FakeAudioContext {
   }
   createBufferSource() {
     return new FakeBufferSource();
+  }
+  createDynamicsCompressor() {
+    return new FakeCompressor();
   }
   createBuffer(_channels: number, length: number) {
     return { getChannelData: () => new Float32Array(length), duration: 1 };

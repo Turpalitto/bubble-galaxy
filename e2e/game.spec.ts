@@ -287,6 +287,11 @@ test.describe('Переполох во дворе', () => {
         exponentialRampToValueAtTime(value: number) {
           this.value = value;
         }
+        setTargetAtTime(value: number) {
+          this.value = value;
+        }
+        cancelAndHoldAtTime() {}
+        cancelScheduledValues() {}
       }
       class FakeNode {
         connect() {
@@ -322,6 +327,15 @@ test.describe('Переполох во дворе', () => {
         }
         createBiquadFilter() {
           return Object.assign(new FakeNode(), { type: 'lowpass', frequency: new FakeParam() });
+        }
+        createDynamicsCompressor() {
+          return Object.assign(new FakeNode(), {
+            threshold: new FakeParam(),
+            knee: new FakeParam(),
+            ratio: new FakeParam(),
+            attack: new FakeParam(),
+            release: new FakeParam()
+          });
         }
         createBufferSource() {
           return Object.assign(new FakeNode(), { buffer: null, start() {} });

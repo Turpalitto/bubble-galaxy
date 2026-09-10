@@ -34,6 +34,14 @@ body {
   -webkit-user-select: none;
 }
 
+/* Поля ввода остаются выделяемыми даже при глобальной защите игрового UI. */
+input,
+textarea,
+[contenteditable='true'] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 #app {
   position: fixed;
   inset: 0;

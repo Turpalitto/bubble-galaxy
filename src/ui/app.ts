@@ -15,7 +15,7 @@ import {
 import { GameState, applyMove, createState, starsFor } from '../core/game';
 import { track } from '../game/analytics';
 import type { RewardedContext } from '../game/analytics';
-import { hint, solve } from '../core/solver';
+import { hint, hintAsync, solve } from '../core/solver';
 import { ACHIEVEMENTS, achievementProgress, unlockedAchievementKeys } from '../game/achievements';
 import type { GameAudio } from '../game/audio';
 import {
@@ -28,7 +28,8 @@ import {
   weeklyTrophies
 } from '../game/daily';
 import { DailyLevelService } from '../game/daily-client';
-import { endlessMilestoneHints, endlessMultiplier, generateEndless } from '../game/endless';
+import { endlessMilestoneHints, endlessMultiplier } from '../game/endless';
+import { EndlessLevelService } from '../game/endless-client';
 import { SessionStats } from '../game/session-stats';
 import { currentSeason } from '../game/season';
 import {
@@ -121,10 +122,16 @@ import { endlessSparkline } from './sparkline';
  * кампании. Раньше страховка снималась разом после уровня 3, и игрок, только
  * что впервые увидевший лёд/кур/held-кнопку на уровне 17/105/109/113, платил
  * токеном за подсказку по правилу, которому игра ещё не успела научить.
- * Список — id уровней с `role: 'tutorial'` плюс 17 (кнопка ворот, единственная
- * механика без выделенной мини-главы).
+ * Источник истины — `role: 'tutorial'`; вручную остаются только уровни 1–3 и
+ * 17 (кнопка ворот, единственная механика без выделенной мини-главы).
  */
-const FREE_HINT_LEVEL_IDS = new Set([1, 2, 3, 17, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116]);
+const FREE_HINT_LEVEL_IDS = new Set([
+  1,
+  2,
+  3,
+  17,
+  ...LEVELS.filter((level) => level.role === 'tutorial').map((level) => level.id)
+]);
 
 /**
  * Резерв пропуска уровня без rewarded-видео (см. обработчик btn-skip):
@@ -226,6 +233,7 @@ export class App {
   private readonly sessionStartedAt = performance.now();
   private freeHintsLeft: number;
   private readonly dailyLevels = new DailyLevelService();
+  private readonly endlessLevels = new EndlessLevelService();
   private dailyLoading = false;
   private activeBoard: BoardView | null = null;
   private yardDirector: YardDirector | null = null;
@@ -318,6 +326,8 @@ export class App {
     };
     document.addEventListener('pointerdown', unlockAudio, { capture: true });
     document.addEventListener('touchstart', unlockAudio, { capture: true, passive: true });
+    // Старые iOS/Safari надёжнее разрешают AudioContext на завершении жеста.
+    document.addEventListener('touchend', unlockAudio, { capture: true, once: true });
     document.addEventListener('mousedown', unlockAudio, { capture: true });
     // Генерация идёт в Worker: можно прогреть daily без заморозки первого уровня.
     this.dailyLevels.prewarm(this.dailyKey());
@@ -1700,10 +1710,8 @@ export class App {
     </div>`;
     const streak = this.endlessStreak;
     const seed = (Date.now() ^ (streak * 2654435761)) >>> 0;
-    // Генерация синхронна, но модальный экран уже отрисован — отдаём кадр браузеру.
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
     try {
-      const level = generateEndless(streak, seed);
+      const level = await this.endlessLevels.get(streak, seed);
       this.runLevel(level, false, undefined, true);
     } catch (error) {
       console.error('Бесконечный двор не сгенерировался:', error);
@@ -1907,9 +1915,12 @@ export class App {
     const bv = new BoardView(host, level, cur, {
       onPick: (piece) => {
         this.audio.play('pick');
-        const tractor = level.pieces[piece]?.kind === 'tractor';
+        const kind = level.pieces[piece]?.kind;
+        const tractor = kind === 'tractor';
         if (tractor) this.audio.play('tractorStart');
-        this.audio.engineStart(tractor ? 'tractor' : 'vehicle');
+        // Ящик скользит без автомобильного мотора. Остальная техника получает
+        // собственный тембр по массе: target/car/truck/tractor.
+        if (kind && kind !== 'crate') this.audio.engineStart(kind);
         this.hideOnboardingHand();
       },
       onRelease: () => this.audio.engineStop(),
@@ -2277,7 +2288,7 @@ export class App {
         if (ok) {
           attempt.usedHint = true;
           track({ type: 'hint_used', levelId: level.id, source: hintSource });
-          const move = hint(level, cur);
+          const move = await hintAsync(level, cur);
           if (move) bv.showHint(move);
           this.yardDirector?.react('hint');
         }
