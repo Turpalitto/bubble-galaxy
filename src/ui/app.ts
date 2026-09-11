@@ -98,7 +98,7 @@ import { YardDirector } from './yard-reactions';
 import { showCampaignEnding } from './campaign-ending';
 import { TARGET_SKINS, setTargetSkin, targetCarPreview } from './sprites';
 import { levelThumbnail } from './thumbnail';
-import { yardSVG } from './yard';
+import { yardCatSVG, yardSVG } from './yard';
 import { confettiHtml } from './confetti';
 import { SettingsToggles } from './toggles';
 import { TVNavigator } from './tv-navigation';
@@ -237,6 +237,7 @@ export class App {
   private dailyLoading = false;
   private activeBoard: BoardView | null = null;
   private yardDirector: YardDirector | null = null;
+  private catReactionTimer: number | null = null;
   /** Момент показа интро текущего босса — для аналитики `boss_complete.timeMs`. */
   private bossStartedAt = 0;
   /**
@@ -320,7 +321,7 @@ export class App {
       else this.syncAudioPause();
     });
     const unlockAudio = () => {
-      this.audio.unlock();
+      void this.audio.unlock();
       this.audio.startAmbient();
       this.audio.startMusic();
     };
@@ -763,11 +764,12 @@ export class App {
       <div class="screen menu-screen" data-testid="screen-menu">
         <div class="yard-bg">
           <img class="menu-yard-art" src="${import.meta.env.BASE_URL}art/yard-menu-evening-v1.webp" alt="" aria-hidden="true" />
-          <div class="yard-live-scene" role="img" aria-label="${t('menu.yardProgress', { n: yardStage, m: 10 })}">
+          <div class="yard-live-scene" role="group" aria-label="${t('menu.yardProgress', { n: yardStage, m: 10 })}">
             ${yardSVG(unlockedUpgrades(total), trophies, season?.id, yardStage, this.store.data.endlessBest ?? 0)}
             <span class="yard-live-label">${t('menu.yardProgress', { n: yardStage, m: 10 })}</span>
           </div>
         </div>
+        <div class="yard-cat-layer">${yardCatSVG(t('yard.catAction'))}</div>
         <div class="menu-hud">
           <span class="hud-chip stars-total" data-testid="stars-total">★ ${total} / ${max}</span>
           <span class="hud-chip hud-hints" data-testid="menu-hint-tokens">💡 ${this.store.data.hintTokens ?? 0}</span>
@@ -984,17 +986,44 @@ export class App {
       this.audio.play('click');
       this.showMenu();
     });
-    // живой двор: обитатели отзываются на тап
-    this.q('.yard-bg').addEventListener('click', (e) => {
-      const g = (e.target as Element).closest<SVGGElement>('[data-tap]');
-      if (!g) return;
+    // Живой двор: обитатели отзываются на тап, а кот ещё и сердито
+    // разворачивается. Интерактивные SVG-объекты доступны с клавиатуры.
+    const activateYardResident = (g: SVGGElement): void => {
       const inner = g.querySelector<SVGGElement>('.tap-inner') ?? g;
       inner.classList.remove('tap-anim');
       void inner.getBoundingClientRect();
       inner.classList.add('tap-anim');
       inner.addEventListener('animationend', () => inner.classList.remove('tap-anim'), { once: true });
       const sound = g.getAttribute('data-tap') as 'cluck' | 'bark' | 'meow' | 'honk';
-      this.audio.play(sound);
+      if (sound === 'meow') {
+        if (this.catReactionTimer !== null) window.clearTimeout(this.catReactionTimer);
+        g.classList.remove('cat-angry');
+        void g.getBoundingClientRect();
+        g.classList.add('cat-angry');
+        this.catReactionTimer = window.setTimeout(() => {
+          g.classList.remove('cat-angry');
+          this.catReactionTimer = null;
+        }, 1050);
+      }
+      if (sound === 'meow') {
+        // Первый тап по коту может одновременно быть жестом разблокировки
+        // WebAudio. Safari завершает resume асинхронно — ждём его явно.
+        void this.audio.unlock().then(() => this.audio.play(sound));
+      } else {
+        this.audio.play(sound);
+      }
+    };
+    const yard = this.q('.menu-screen');
+    yard.addEventListener('click', (e) => {
+      const g = (e.target as Element).closest<SVGGElement>('[data-tap]');
+      if (g) activateYardResident(g);
+    });
+    yard.addEventListener('keydown', (e) => {
+      if (!(e instanceof KeyboardEvent) || (e.key !== 'Enter' && e.key !== ' ')) return;
+      const g = (e.target as Element).closest<SVGGElement>('[data-tap]');
+      if (!g) return;
+      e.preventDefault();
+      activateYardResident(g);
     });
     this.q('[data-testid=menu-rules]').addEventListener('click', () => {
       this.audio.play('click');

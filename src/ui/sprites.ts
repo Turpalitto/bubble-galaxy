@@ -398,8 +398,28 @@ export function wellArt(): string {
 
 export function catArt(): string {
   return `
-    <path d="M-12 10 Q-14 -6 -4 -10 L-6 -16 L0 -12 L6 -16 L4 -10 Q14 -6 12 10 Z" fill="#5a5350" stroke="#403a37" stroke-width="2"/>
-    <path class="cat-tail" d="M12 8 Q22 6 20 -4" fill="none" stroke="#5a5350" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="-4" cy="-4" r="1.6" fill="#f6c445"/>
-    <circle cx="4" cy="-4" r="1.6" fill="#f6c445"/>`;
+    <ellipse class="cat-shadow" cx="0" cy="13" rx="24" ry="5" fill="rgba(43,29,10,.2)"/>
+    <g class="cat-body">
+      <path class="cat-tail" d="M-16 5 Q-31 3 -28 -10 Q-26 -18 -19 -13" fill="none" stroke="#5a5350" stroke-width="6" stroke-linecap="round"/>
+      <ellipse cx="-2" cy="2" rx="19" ry="12" fill="#5a5350" stroke="#403a37" stroke-width="2"/>
+      <path class="cat-stripes" d="M-11-6l3 6M-3-9l2 7M5-8l-1 6" fill="none" stroke="#403a37" stroke-width="2.2" stroke-linecap="round" opacity=".72"/>
+      <path class="cat-paw cat-paw-back" d="M-11 9v9" stroke="#403a37" stroke-width="5" stroke-linecap="round"/>
+      <path class="cat-paw cat-paw-front" d="M10 9v9" stroke="#403a37" stroke-width="5" stroke-linecap="round"/>
+    </g>
+    <g class="cat-head" transform="translate(16,-7)">
+      <g class="cat-face">
+        <path d="M-12 10Q-14-5-7-10L-8-18L0-13L8-18L7-9Q14-4 12 10Z" fill="#67605c" stroke="#403a37" stroke-width="2" stroke-linejoin="round"/>
+        <path class="cat-ear-twitch" d="M-8-16L-3-12L-7-10Z M8-16L3-12L7-10Z" fill="#d69289"/>
+        <g class="cat-eye-blink">
+          <circle class="cat-eye" cx="-5" cy="-4" r="2.4" fill="#f6c445"/>
+          <circle class="cat-eye" cx="5" cy="-4" r="2.4" fill="#f6c445"/>
+          <circle cx="-5" cy="-4" r="1" fill="#292523"/><circle cx="5" cy="-4" r="1" fill="#292523"/>
+        </g>
+        <path class="cat-angry-brows" d="M-9-9L-2-6M9-9L2-6" fill="none" stroke="#292523" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M-2 2L0 4L2 2" fill="#d69289" stroke="#403a37" stroke-width="1"/>
+        <path class="cat-mouth-calm" d="M0 4Q-3 8-6 5M0 4Q3 8 6 5" fill="none" stroke="#403a37" stroke-width="1.4" stroke-linecap="round"/>
+        <path class="cat-mouth-angry" d="M-6 8Q0 2 6 8" fill="none" stroke="#403a37" stroke-width="2" stroke-linecap="round"/>
+        <path d="M-5 2L-15 0M-5 5L-15 7M5 2L15 0M5 5L15 7" stroke="#403a37" stroke-width="1" stroke-linecap="round" opacity=".8"/>
+      </g>
+    </g>`;
 }

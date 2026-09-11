@@ -447,9 +447,21 @@ export function yardSVG(u: Set<string>, trophies = 0, season?: string, stage = 0
     ${kennel}
     ${tree}
     ${car}
-    <g transform="translate(408,300)" data-tap="meow"><g class="tap-inner">${catArt()}</g></g>
     <g transform="translate(210,500) scale(1.4)" data-tap="cluck"><g class="tap-inner"><g class="chicken-bob">${chickenArt()}</g></g></g>
     <g transform="translate(268,530) scale(1.2) scale(-1,1)" data-tap="cluck"><g class="tap-inner"><g class="chicken-bob" style="animation-delay:2.3s">${chickenArt()}</g></g></g>
     ${seasonOverlay(season)}
+  </svg>`;
+}
+
+/**
+ * Кот живёт отдельным прозрачным SVG-слоем над меню. На широком экране
+ * основной SVG двора заменяется рисованным фоном, поэтому кот внутри него
+ * исчезал бы вместе со всей процедурной сценой.
+ */
+export function yardCatSVG(label: string): string {
+  return `<svg viewBox="0 0 900 620" preserveAspectRatio="xMidYMid slice" class="yard-cat-svg" aria-hidden="false">
+    <g class="yard-cat-walker" data-tap="meow" data-testid="yard-cat" role="button" tabindex="0" aria-label="${label}">
+      <g class="yard-cat-facing"><g class="tap-inner cat-character">${catArt()}</g></g>
+    </g>
   </svg>`;
 }

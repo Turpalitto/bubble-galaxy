@@ -186,6 +186,22 @@ html.high-contrast .levels-grid {
   height: 100%;
   display: block;
 }
+.yard-cat-layer {
+  position: absolute;
+  inset: 0 0 30% 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+.yard-cat-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+.yard-cat-svg [data-tap] {
+  pointer-events: auto;
+}
 .menu-yard-art {
   display: none;
 }
@@ -1621,6 +1637,153 @@ html.high-contrast .levels-grid {
   transform-origin: 0% 100%;
   animation: tail-swish 4.4s ease-in-out infinite;
 }
+.yard-cat-walker {
+  --cat-start-x: 330px;
+  --cat-end-x: 700px;
+  --cat-start-y: 394px;
+  --cat-end-y: 404px;
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: cat-walk-route 18s linear infinite;
+  will-change: transform;
+  outline: none;
+}
+.yard-cat-facing {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cat-face-route 18s steps(1, end) infinite;
+}
+.yard-cat-walker .cat-character {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: cat-gait 0.42s ease-in-out infinite alternate;
+}
+.yard-cat-walker .cat-body {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: cat-body-breathe 2.8s ease-in-out infinite;
+}
+.yard-cat-walker .cat-face {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: cat-look-around 18s ease-in-out infinite;
+}
+.yard-cat-walker .cat-eye-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cat-blink 5.6s ease-in-out infinite;
+}
+.yard-cat-walker .cat-ear-twitch {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: cat-ears 4.1s ease-in-out infinite;
+}
+.yard-cat-walker .cat-paw {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: cat-step 0.42s ease-in-out infinite alternate;
+}
+.yard-cat-walker .cat-paw-back {
+  animation-delay: -0.42s;
+}
+.yard-cat-walker:focus-visible .cat-character {
+  filter: drop-shadow(0 0 3px #fff7e6) drop-shadow(0 0 7px #f6c445);
+}
+.yard-cat-walker.cat-angry {
+  animation-play-state: paused;
+}
+.yard-cat-walker.cat-angry .yard-cat-facing {
+  animation: cat-angry-turn 0.9s cubic-bezier(0.2, 1.35, 0.35, 1) both;
+}
+.yard-cat-walker.cat-angry .cat-character {
+  filter: drop-shadow(0 3px 2px rgba(43, 29, 10, 0.35));
+  animation: cat-angry-bristle 0.18s ease-in-out 5 alternate;
+}
+.yard-cat-walker.cat-angry .cat-body {
+  animation: cat-angry-body 0.9s cubic-bezier(0.2, 1.3, 0.3, 1) both;
+}
+.yard-cat-walker.cat-angry .cat-face {
+  animation: cat-angry-face 0.9s ease both;
+}
+.yard-cat-walker.cat-angry .cat-tail {
+  animation: cat-angry-tail 0.16s ease-in-out 6 alternate;
+}
+.yard-cat-walker.cat-angry .cat-eye {
+  fill: #ffb43b;
+}
+.cat-angry-brows,
+.cat-mouth-angry {
+  opacity: 0;
+}
+.yard-cat-walker.cat-angry .cat-angry-brows,
+.yard-cat-walker.cat-angry .cat-mouth-angry {
+  opacity: 1;
+}
+.yard-cat-walker.cat-angry .cat-mouth-calm {
+  opacity: 0;
+}
+@keyframes cat-walk-route {
+  0%, 2% { transform: translate(var(--cat-start-x), var(--cat-start-y)); }
+  48%, 50% { transform: translate(var(--cat-end-x), var(--cat-end-y)); }
+  52%, 54% { transform: translate(var(--cat-end-x), var(--cat-end-y)); }
+  98%, 100% { transform: translate(var(--cat-start-x), var(--cat-start-y)); }
+}
+@keyframes cat-face-route {
+  0%, 50% { transform: scaleX(1); }
+  52%, 100% { transform: scaleX(-1); }
+}
+@keyframes cat-gait {
+  from { transform: translateY(0) rotate(-1deg); }
+  to { transform: translateY(-2.5px) rotate(1deg); }
+}
+@keyframes cat-body-breathe {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.035); }
+}
+@keyframes cat-look-around {
+  0%, 38%, 56%, 92%, 100% { transform: rotate(0); }
+  44% { transform: rotate(-8deg) translateY(-1px); }
+  49% { transform: rotate(7deg); }
+  96% { transform: rotate(-6deg) translateY(-1px); }
+}
+@keyframes cat-blink {
+  0%, 44%, 48%, 100% { transform: scaleY(1); }
+  46% { transform: scaleY(0.12); }
+}
+@keyframes cat-ears {
+  0%, 82%, 100% { transform: rotate(0); }
+  86% { transform: rotate(-5deg) translateY(1px); }
+  90% { transform: rotate(4deg); }
+}
+@keyframes cat-angry-bristle {
+  from { transform: translateY(-1px) rotate(-2deg); }
+  to { transform: translateY(-5px) rotate(2deg) scale(1.08); }
+}
+@keyframes cat-angry-body {
+  0% { transform: scaleY(1); }
+  42% { transform: translateY(-5px) scale(1.08, 1.28) rotate(-5deg); }
+  100% { transform: translateY(-2px) scale(1.03, 1.12); }
+}
+@keyframes cat-angry-face {
+  0% { transform: rotate(0); }
+  42% { transform: translateY(-4px) rotate(10deg) scale(1.1); }
+  100% { transform: translateY(-2px) rotate(4deg) scale(1.06); }
+}
+@keyframes cat-angry-tail {
+  from { transform: rotate(-18deg) scaleY(1); }
+  to { transform: rotate(20deg) scaleY(1.35); }
+}
+@keyframes cat-step {
+  from { transform: rotate(12deg) translateY(-1px); }
+  to { transform: rotate(-12deg) translateY(1px); }
+}
+@keyframes cat-angry-turn {
+  0% { transform: scaleX(1) translateY(0) rotate(0); }
+  32% { transform: scaleX(0.35) translateY(-8px) rotate(-7deg); }
+  58% { transform: scaleX(-1.18) translateY(-7px) rotate(7deg); }
+  78% { transform: scaleX(-0.94) translateY(-2px) rotate(-3deg); }
+  100% { transform: scaleX(-1) translateY(0) rotate(0); }
+}
 @keyframes tail-swish {
   0%,
   100% {
@@ -2661,6 +2824,13 @@ html[data-daytime='night'] .yard-lamp-light {
   #app:not(.tv-mode) .menu-screen .yard-bg {
     inset: 0;
   }
+  #app:not(.tv-mode) .menu-screen .yard-cat-layer {
+    inset: 0;
+  }
+  #app:not(.tv-mode) .menu-screen .yard-cat-walker {
+    --cat-start-x: 300px;
+    --cat-end-x: 500px;
+  }
   #app:not(.tv-mode) .menu-screen .yard-svg {
     filter: saturate(0.92) sepia(0.08) brightness(0.88);
   }
@@ -2951,6 +3121,13 @@ html[data-daytime='night'] .yard-lamp-light {
   }
   .yard-bg {
     inset: 0;
+  }
+  .yard-cat-layer {
+    inset: 0;
+  }
+  .yard-cat-walker {
+    --cat-start-x: 250px;
+    --cat-end-x: 430px;
   }
   .menu-ui {
     height: 100%;

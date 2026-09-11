@@ -114,10 +114,13 @@ export class GameAudio {
     public musicEnabled: boolean
   ) {}
 
-  /** Вызывать по первому pointerdown — разблокирует автоплей. */
-  unlock(): void {
+  /**
+   * Вызывать по первому pointerdown — разблокирует автоплей. Promise позволяет
+   * редким звукам первого жеста дождаться асинхронного resume() в Safari.
+   */
+  async unlock(): Promise<void> {
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') void this.ctx.resume();
+      if (this.ctx.state === 'suspended') await this.ctx.resume();
       return;
     }
     try {
@@ -144,6 +147,7 @@ export class GameAudio {
       const browserAssetsAvailable = typeof location !== 'undefined';
       this.sampleLoader = new SampleLoader(createBrowserFetcher(this.ctx), import.meta.env.DEV && browserAssetsAvailable);
       if (browserAssetsAvailable) this.preloadSamples();
+      if (this.ctx.state === 'suspended') await this.ctx.resume();
     } catch {
       this.ctx = null; // без звука игра остаётся играбельной
     }
@@ -695,7 +699,11 @@ export class GameAudio {
         });
         break;
       case 'meow':
-        this.tone(620, 0.28, 'sine', 0.12, 0, 330);
+        // Два слога и верхняя форманта читаются как «мя-ау», а не как тихий
+        // электронный писк. Запас громкости нужен поверх фоновой музыки двора.
+        this.tone(760, 0.42, 'sine', 0.24, 0, 470);
+        this.tone(1180, 0.34, 'triangle', 0.085, 0.025, 720);
+        this.tone(510, 0.3, 'sine', 0.14, 0.2, 350);
         break;
       case 'star':
         this.playSample('star_collect', 0.35, () => {

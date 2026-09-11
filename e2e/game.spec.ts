@@ -97,6 +97,20 @@ test.describe('Переполох во дворе', () => {
     expect(errors).toEqual([]);
   });
 
+  test('кот гуляет по двору, мяукает и сердито оборачивается', async ({ page }) => {
+    await page.goto('/?mock=1&lang=ru&daytime=day');
+    const cat = page.getByTestId('yard-cat');
+    await expect(cat).toBeVisible();
+    const startTransform = await cat.evaluate((element) => getComputedStyle(element).transform);
+    await page.waitForTimeout(650);
+    await expect.poll(() => cat.evaluate((element) => getComputedStyle(element).transform)).not.toBe(startTransform);
+    // Анимированный объект по определению не бывает «stable» для auto-wait Playwright,
+    // но обычный pointer click по его текущей экранной позиции обрабатывается браузером.
+    await cat.click({ force: true });
+    await expect(cat).toHaveClass(/cat-angry/);
+    await expect(cat).not.toHaveClass(/cat-angry/, { timeout: 1500 });
+  });
+
   test('настройки меню собраны в компактную раскрывающуюся панель', async ({ page }) => {
     await page.goto('/?mock=1&lang=ru&daytime=day');
     await expect(page.getByTestId('menu-settings')).toHaveAttribute('aria-expanded', 'false');

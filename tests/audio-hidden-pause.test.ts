@@ -65,12 +65,13 @@ class FakeCompressor extends FakeNode {
 
 let oscillatorsCreated = 0;
 let bufferSourcesCreated = 0;
+let initialContextState: AudioContextState = 'running';
 
 class FakeAudioContext {
   destination = new FakeNode();
   sampleRate = 44100;
   currentTime = 0;
-  state = 'running';
+  state: AudioContextState = initialContextState;
   createGain() {
     return new FakeGain();
   }
@@ -90,6 +91,7 @@ class FakeAudioContext {
     return { getChannelData: () => new Float32Array(length), duration: 1 };
   }
   resume() {
+    this.state = 'running';
     return Promise.resolve();
   }
 }
@@ -98,6 +100,7 @@ describe('GameAudio — hidden/pause не плодит новые ноды', () 
   beforeEach(() => {
     oscillatorsCreated = 0;
     bufferSourcesCreated = 0;
+    initialContextState = 'running';
     vi.useFakeTimers();
     (globalThis as unknown as { window: typeof globalThis }).window = globalThis;
     (globalThis as unknown as { AudioContext: typeof FakeAudioContext }).AudioContext = FakeAudioContext;
@@ -109,7 +112,7 @@ describe('GameAudio — hidden/pause не плодит новые ноды', () 
 
   it('hidden → количество созданных нод не растёт', () => {
     const audio = new GameAudio(true, true);
-    audio.unlock();
+    void audio.unlock();
     audio.startAmbient();
     audio.startMusic();
     audio.setHidden(true);
@@ -120,7 +123,7 @@ describe('GameAudio — hidden/pause не плодит новые ноды', () 
 
   it('resume → музыка/ambient снова создают ноды после setHidden(false)', () => {
     const audio = new GameAudio(true, true);
-    audio.unlock();
+    void audio.unlock();
     audio.startAmbient();
     audio.startMusic();
     audio.setHidden(true);
@@ -133,7 +136,7 @@ describe('GameAudio — hidden/pause не плодит новые ноды', () 
 
   it('двойной resume не плодит второй music-таймер (нет удвоения нод за тот же интервал)', () => {
     const audio = new GameAudio(true, true);
-    audio.unlock();
+    void audio.unlock();
     audio.startMusic();
     audio.setHidden(true);
     audio.setHidden(false);
@@ -149,7 +152,7 @@ describe('GameAudio — hidden/pause не плодит новые ноды', () 
 
   it('выключенная музыка не возобновляется через hidden/resume', () => {
     const audio = new GameAudio(true, false);
-    audio.unlock();
+    void audio.unlock();
     audio.startMusic(); // musicEnabled=false → no-op
     audio.setHidden(true);
     audio.setHidden(false);
@@ -159,7 +162,7 @@ describe('GameAudio — hidden/pause не плодит новые ноды', () 
 
   it('реклама (duck) pause/resume не создаёт дубликатов нод, как и hidden', () => {
     const audio = new GameAudio(true, true);
-    audio.unlock();
+    void audio.unlock();
     audio.startMusic();
     audio.duck(true);
     const before = oscillatorsCreated;
@@ -172,12 +175,22 @@ describe('GameAudio — hidden/pause не плодит новые ноды', () 
 
   it('play() не создаёт ноду, пока hidden', () => {
     const audio = new GameAudio(true, true);
-    audio.unlock();
+    void audio.unlock();
     audio.setHidden(true);
     audio.play('click');
     expect(oscillatorsCreated).toBe(0);
     audio.setHidden(false);
     audio.play('click');
     expect(oscillatorsCreated).toBeGreaterThan(0);
+  });
+
+  it('первое мяу ждёт разблокировки контекста и звучит несколькими формантами', async () => {
+    initialContextState = 'suspended';
+    const audio = new GameAudio(true, false);
+
+    await audio.unlock();
+    audio.play('meow');
+
+    expect(oscillatorsCreated).toBeGreaterThanOrEqual(3);
   });
 });

@@ -49,3 +49,21 @@ Date: 2026-09-10
 ### Decision
 
 Keep runtime art/audio, current promo PNGs and submission screenshots; exclude generated audit evidence and release ZIPs
+
+## ADR-09110001 — Recorded decision
+
+Status: Accepted
+Date: 2026-09-10
+
+### Decision
+
+Use existing SVG/WebAudio instead of new assets; keep the cat decorative and outside puzzle core; constrain its desktop/landscape route away from menu controls; respect reduced-motion globally.
+
+## ADR-09110029 — Recorded decision
+
+Status: Accepted
+Date: 2026-09-10
+
+### Decision
+
+Keep synthesized WebAudio with no new asset download; await unlock only for the rare cat interaction while preserving existing sound preference.

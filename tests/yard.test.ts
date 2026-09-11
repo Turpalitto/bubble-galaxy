@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { yardSVG } from '../src/ui/yard';
+import { yardCatSVG, yardSVG } from '../src/ui/yard';
 
 describe('визуальные этапы двора', () => {
+  it('рисует доступного гуляющего кота с интерактивной реакцией', () => {
+    const svg = yardCatSVG('Позвать кота');
+
+    expect(svg).toContain('data-testid="yard-cat"');
+    expect(svg).toContain('class="yard-cat-walker"');
+    expect(svg).toContain('data-tap="meow"');
+    expect(svg).toContain('tabindex="0"');
+    expect(svg).toContain('aria-label="Позвать кота"');
+  });
+
   it('оставляет стартовый двор сдержанным', () => {
     const svg = yardSVG(new Set(), 0, undefined, 0);
 

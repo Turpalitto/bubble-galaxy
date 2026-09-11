@@ -32,6 +32,8 @@ The 128-level game is release-ready locally. Runtime art and audio remain in `pu
 
 ## Recent significant changes
 
+- 2026-09-11: Added body gait, alternating paws, breathing, blinking, ear twitches, looking around, stripes, bristling angry posture and a more expressive turn; made GameAudio.unlock await Safari resume; changed meow to a louder three-formant two-syllable sound; added suspended-context audio regression coverage.
+- 2026-09-11: Turned the static yard cat into a lightweight animated SVG character on a dedicated responsive overlay; added walking route, stepping paws, direction changes, angry turn reaction, existing meow sound, pointer and keyboard activation, localized accessible labels, and regression tests.
 - 2026-09-10: Removed historical audit media, obsolete reports and the 100-level release archive; added current async solver, Endless worker, audio and accessibility improvements
 - 2026-09-10: Enabled viewport zoom and selectable form fields; added browser-safe async hints without a low state cap; moved endless generation to a worker with fallback; derived tutorial free-hint IDs from campaign metadata; added touchend audio unlock; extended regression tests.
 - 2026-09-10: Prepared a clean primary-branch snapshot, removed historical audit media and obsolete release archives, and retained only current runtime/publishing assets.
