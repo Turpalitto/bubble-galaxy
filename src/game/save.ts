@@ -149,6 +149,19 @@ export const SAVE_MIGRATIONS: Record<number, (raw: Record<string, unknown>) => R
 const MAX_MIGRATION_STEPS = 32;
 
 /**
+ * Верхний предел серии дней при санитизации (10 лет непрерывной ежедневной игры).
+ * Защищает от числового переполнения и повреждённых локальных сохранений;
+ * не является защитой от намеренной отправки значений через консоль браузера.
+ */
+export const MAX_DAILY_STREAK = 3650;
+
+/**
+ * Верхний предел недельных кубков при санитизации (10 лет еженедельных кубков).
+ * Служит для защиты структуры локального сохранения (в лидерборд не передаётся).
+ */
+export const MAX_WEEKLY_TROPHIES = 520;
+
+/**
  * Поднимает сырой сейв до `targetVersion` цепочкой шагов из SAVE_MIGRATIONS.
  * Экспортирована для тестов: механизм репетируется на «будущей» целевой
  * версии до реального bump формата.
@@ -190,14 +203,14 @@ export function sanitizeSave(raw: unknown): SaveData | null {
       r.daily && typeof r.daily.last === 'string' && Number.isInteger(r.daily.streak) && r.daily.streak >= 1
         ? {
             last: r.daily.last,
-            streak: r.daily.streak,
+            streak: Math.min(MAX_DAILY_STREAK, r.daily.streak),
             weekKey: typeof r.daily.weekKey === 'string' ? r.daily.weekKey : undefined,
             weekDays: Array.isArray(r.daily.weekDays)
               ? [...new Set(r.daily.weekDays.filter((d): d is string => typeof d === 'string'))].slice(0, 7)
               : undefined,
             trophies:
               Number.isInteger(r.daily.trophies) && (r.daily.trophies as number) >= 0
-                ? (r.daily.trophies as number)
+                ? Math.min(MAX_WEEKLY_TROPHIES, r.daily.trophies as number)
                 : undefined
           }
         : undefined,

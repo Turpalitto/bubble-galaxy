@@ -70,7 +70,7 @@
 - [x] Финальный босс 100 открывает Высшую лигу (`completeCampaignFinale`) один раз; повтор — без повторных наград (общая логика с обычным уровнем 100)
 - [x] SaveData.bossDone (union merge)
 - [x] e2e: босс 10 (полный проход/restart/TV) + боссы 25/50/75/100 (интро→фазы→победа, прогресс только после победы) + босс 100 (открытие лиги / повтор без наград), desktop+mobile; хук завершения фазы гейтится MODE==='e2e'
-- [ ] Реальные аудио-сэмплы (см. AUDIO_ASSETS_REQUIRED.md)
+- [x] Все 20 зарегистрированных аудио-сэмплов добавлены; для остальных эффектов сохранён синтезированный fallback (см. AUDIO_ASSETS_REQUIRED.md)
 
 ## Полировка первой сессии (реализовано)
 - [x] Аудит первых 10 уровней чтением кода — найдены и исправлены 3 P0/P1: наслоение приветствия деда на обучающий toast, платный токен на обучающей подсказке, reduced-motion не убирал анимацию onboarding-стрелки (терялось направление)
@@ -79,7 +79,7 @@
 - [x] `?grandpaDebug=1` — pickLineVerbose с причинами отсева реплик
 - [x] Unit: sound-registry (5), analytics (4), grandpa pickLineVerbose (4) — 460 всего
 - [x] e2e: 8 новых сценариев первой сессии + правка 5 существующих тестов, сломанных намеренными изменениями таймингов/экономики подсказок — 97 всего
-- [x] Документы: FIRST_SESSION_DESIGN.md, UX_ACCEPTANCE_CHECKLIST.md (новые); README/GAME_DESIGN/TECHNICAL_DESIGN/PROJECT_HANDOFF/CHANGELOG/AUDIO_ASSETS_REQUIRED обновлены
+- [x] Документы: FIRST_SESSION_DESIGN.md, UX_ACCEPTANCE_CHECKLIST.md (новые); README/GAME_DESIGN/TECHNICAL_DESIGN/CHANGELOG/AUDIO_ASSETS_REQUIRED обновлены
 - [x] typecheck+lint+test(460)+solve+build(865КБ)+verify:dist+e2e(97) — все зелёные
 
 ## Release audit findings (реализовано)

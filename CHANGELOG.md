@@ -38,7 +38,7 @@
 - **Удалён мёртвый код** `src/game/yard-events.ts` (YardEvent/RateLimiter никогда не порождались; реальный путь — `YardDirector` + события в `app.ts`) + тесты этого модуля.
 
 ### Docs
-- README, IMPLEMENTATION_PLAN, PROJECT_HANDOFF, LIVING_YARD_DESIGN, BOSS_SYSTEM, GAME_DESIGN: убраны ссылки на yard-events, таблицы боссов выровнены с фактическими названиями/целями, порядок сюжета боссов исправлен.
+- README, IMPLEMENTATION_PLAN, LIVING_YARD_DESIGN, BOSS_SYSTEM, GAME_DESIGN: убраны ссылки на yard-events, таблицы боссов выровнены с фактическими названиями/целями, порядок сюжета боссов исправлен.
 
 ## 2026-08-27 — Stage C/D высшей лиги: множитель endless-серии, «Испытание деда» (data-model)
 
@@ -104,7 +104,7 @@
 - **Boss HUD** «Фаза N из M», помещается на 320×568 и landscape 667×375.
 - **Финал кампании через босса 100**: открывает Высшую лигу той же логикой, что обычный уровень 100 (`completeCampaignFinale`).
 - `SaveData.bossDone` (union merge); `SaveData.liveYard`.
-- Документы: `BOSS_SYSTEM.md`, `PROJECT_HANDOFF.md`, `AUDIO_ASSETS_REQUIRED.md`, `LIVING_YARD_DESIGN.md`, этот `CHANGELOG.md`.
+- Документы: `BOSS_SYSTEM.md`, `AUDIO_ASSETS_REQUIRED.md`, `LIVING_YARD_DESIGN.md`, этот `CHANGELOG.md`.
 - Тесты: unit `grandpa.test.ts` (11), `boss.test.ts` (8); e2e — живой двор (4) и боссы (боссы 10 + 25/50/75/100 + финал 100 + повтор без наград), desktop+mobile+TV.
 
 ### Fixed

@@ -1,32 +1,29 @@
 # Current Context
 
 <!-- PROJECT-MEMORY-KIT:AUTOMATIC -->
-- **Current focus:** Расширить кампанию до 130 доказуемо проходимых уровней
-- **Last completed step:** Добавлены уровни 129–130, расширена глава 10, обновлены локализации, документация и генератор капстоунов
-- **What changed:** Добавлены уровни 129–130, расширена глава 10, обновлены локализации, документация и генератор капстоунов
-- **What needs verification:** typecheck, lint, 552 unit tests, solve 130 levels, ice/chicken/held significance, build, 276 e2e passed and 1 skipped, verify:docs, manual QA
-- **Next logical step:** При запросе пользователя закоммитить совместно с уже подготовленными изменениями
+- **Current focus:** Очистить рабочую копию и репозиторий от однозначно лишних артефактов, затем отправить полезные изменения в main
+- **Last completed step:** Удалены устаревшие PROMPT, PROJECT_HANDOFF и SKIPPED; исправлены ссылки и устаревшие сведения; локальные build/test/tool caches перенесены в Корзину; node_modules сохранён
+- **What changed:** Удалены устаревшие PROMPT, PROJECT_HANDOFF и SKIPPED; исправлены ссылки и устаревшие сведения; локальные build/test/tool caches перенесены в Корзину; node_modules сохранён
+- **What needs verification:** typecheck, lint, 553 unit tests, build, verify:dist, verify:docs, git diff --check
+- **Next logical step:** Закоммитить и отправить main
 - **Important warnings:** Default npm test remains timing-sensitive on this machine: three pre-existing solver/generator tests can exceed their 5s limit under suite contention.
-- **Affected files:** src/levels/levels.json, src/game/campaign.ts, src/game/i18n.ts, scripts/generate-chapter10.ts, tests/levels.test.ts, README.md, PRODUCT_SPEC.md, GAME_DESIGN.md, IMPLEMENTATION_PLAN.md, GENERATED_PROJECT_STATS.md
-- **Git status:** M .gitignore
+- **Affected files:** PROMPT.md, PROJECT_HANDOFF.md, SKIPPED.md, README.md, CHANGELOG.md, IMPLEMENTATION_PLAN.md, AUDIO_ASSETS_REQUIRED.md, BOSS_SYSTEM.md, YANDEX_SUBMISSION.md
+- **Git status:** M AUDIO_ASSETS_REQUIRED.md
+ M BOSS_SYSTEM.md
+ M CHANGELOG.md
  M DECISIONS.md
- M GAME_DESIGN.md
- M GENERATED_PROJECT_STATS.md
  M IMPLEMENTATION_PLAN.md
- M PRODUCT_SPEC.md
+ D PROJECT_HANDOFF.md
  M PROJECT_STATE.md
+ D PROMPT.md
  M README.md
- M e2e/game.spec.ts
+ D SKIPPED.md
+ M YANDEX_SUBMISSION.md
  M memory/.project-memory.json
  M memory/CURRENT_CONTEXT.md
- M package.json
- M scripts/generate-chapter10.ts
- M src/game/boss.ts
- M src/game/campaign.ts
- M src/game/i18n.ts
- M src/levels/levels.json
- M src/ui/app.ts
- M tests/levels.test.ts
-?? .github/workflows/playthrough-audit.yml
-?? memory/sessions/2026-09-14_08-52_selective-safe-playthrough-audit.md
-?? scripts/playthrough-audit.ts
+ M src/game/save.ts
+ M tests/levelgen-modifiers.test.ts
+ M tests/save.test.ts
+?? PROJECT_AUDIT.md
+?? ROADMAP.md
+?? memory/sessions/2026-09-14_18-26_audit-corrections-and-test-timeout.md

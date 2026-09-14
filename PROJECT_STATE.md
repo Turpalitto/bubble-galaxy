@@ -32,6 +32,8 @@ The 128-level game is release-ready locally. Runtime art and audio remain in `pu
 
 ## Recent significant changes
 
+- 2026-09-14: Удалены устаревшие PROMPT, PROJECT_HANDOFF и SKIPPED; исправлены ссылки и устаревшие сведения; локальные build/test/tool caches перенесены в Корзину; node_modules сохранён
+- 2026-09-14: Унифицирован P1-приоритет санитизации, исправлены формулировка релизной проверки и размеры файлов, медленному BFS-тесту задан локальный таймаут 10 секунд
 - 2026-09-14: Добавлены уровни 129–130, расширена глава 10, обновлены локализации, документация и генератор капстоунов
 - 2026-09-14: Added a manual read-only GitHub Actions playthrough audit with uploaded artifacts; added a full UI planner/driver that owns its preview server, avoids Git mutations, and fails on level or page errors; dismisses transient hint toasts on level completion; ignored generated audit artifacts. Kept existing illustrated thumbnails and rejected stale reports, binary screenshots, force-push publishing, allowedHosts:true, and visual regressions.
 - 2026-09-11: Added body gait, alternating paws, breathing, blinking, ear twitches, looking around, stripes, bristling angry posture and a more expressive turn; made GameAudio.unlock await Safari resume; changed meow to a louder three-formant two-syllable sound; added suspended-context audio regression coverage.

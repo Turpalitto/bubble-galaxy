@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SaveStore, defaultSave, mergeSave, sanitizeSave } from '../src/game/save';
+import { MAX_DAILY_STREAK, MAX_WEEKLY_TROPHIES, SaveStore, defaultSave, mergeSave, sanitizeSave } from '../src/game/save';
 import type { SaveData } from '../src/game/save';
 import type { Platform } from '../src/platform/types';
 
@@ -87,12 +87,45 @@ describe('сохранения', () => {
       stars: { '1': 4, '2': 2, bad: -1 },
       targetSkin: -3,
       hintTokens: 500,
-      lastGift: 123
+      lastGift: 123,
+      daily: {
+        last: '2026-09-14',
+        streak: 999_999,
+        trophies: 99_999
+      }
     });
     expect(save?.stars).toEqual({ '2': 2 });
     expect(save?.targetSkin).toBe(0);
     expect(save?.hintTokens).toBe(99);
     expect(save?.lastGift).toBeUndefined();
+    expect(save?.daily?.streak).toBe(MAX_DAILY_STREAK);
+    expect(save?.daily?.trophies).toBe(MAX_WEEKLY_TROPHIES);
+  });
+
+  it('daily.streak и trophies: проверка граничных значений санитизации', () => {
+    // Ровно на границе лимита — сохраняются без изменений
+    const atLimit = sanitizeSave({
+      ...defaultSave(),
+      daily: {
+        last: '2026-09-14',
+        streak: MAX_DAILY_STREAK,
+        trophies: MAX_WEEKLY_TROPHIES
+      }
+    });
+    expect(atLimit?.daily?.streak).toBe(MAX_DAILY_STREAK);
+    expect(atLimit?.daily?.trophies).toBe(MAX_WEEKLY_TROPHIES);
+
+    // Сразу над границей лимита (+1) — безопасно клампятся к максимуму
+    const aboveLimit = sanitizeSave({
+      ...defaultSave(),
+      daily: {
+        last: '2026-09-14',
+        streak: MAX_DAILY_STREAK + 1,
+        trophies: MAX_WEEKLY_TROPHIES + 1
+      }
+    });
+    expect(aboveLimit?.daily?.streak).toBe(MAX_DAILY_STREAK);
+    expect(aboveLimit?.daily?.trophies).toBe(MAX_WEEKLY_TROPHIES);
   });
 
   it('вибрация по умолчанию включена, но сохраняет явное выключение', () => {

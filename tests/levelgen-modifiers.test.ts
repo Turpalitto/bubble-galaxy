@@ -33,19 +33,25 @@ describe('генератор уровней', () => {
     expect(result.solvable).toBe(true);
   });
 
-  it('findLevel детерминирован: тот же rng-старт — тот же уровень', () => {
-    const a = findLevel(mulberry32(11), GEN_6X6, 3, 12, 30_000, 120);
-    const b = findLevel(mulberry32(11), GEN_6X6, 3, 12, 30_000, 120);
-    expect(a).not.toBeNull();
-    expect(b).not.toBeNull();
-    // Фигуры сравниваем позиционно: id генератор мог бы и переименовать.
-    const shape = (f: ReturnType<typeof findLevel>) =>
-      f!.level.pieces.map((p) => `${p.kind}:${p.x},${p.y},${p.len},${p.dir}`).sort();
-    expect(shape(b)).toEqual(shape(a));
-    expect(b!.optimal).toBe(a!.optimal);
-    // Найденный уровень лежит в запрошенном диапазоне или это честный fallback
-    expect(b!.optimal).toBeGreaterThanOrEqual(2);
-  });
+  it(
+    'findLevel детерминирован: тот же rng-старт — тот же уровень',
+    () => {
+      const a = findLevel(mulberry32(11), GEN_6X6, 3, 12, 30_000, 120);
+      const b = findLevel(mulberry32(11), GEN_6X6, 3, 12, 30_000, 120);
+      expect(a).not.toBeNull();
+      expect(b).not.toBeNull();
+      // Фигуры сравниваем позиционно: id генератор мог бы и переименовать.
+      const shape = (f: ReturnType<typeof findLevel>) =>
+        f!.level.pieces.map((p) => `${p.kind}:${p.x},${p.y},${p.len},${p.dir}`).sort();
+      expect(shape(b)).toEqual(shape(a));
+      expect(b!.optimal).toBe(a!.optimal);
+      // Найденный уровень лежит в запрошенном диапазоне или это честный fallback
+      expect(b!.optimal).toBeGreaterThanOrEqual(2);
+    },
+    // Под общей нагрузкой полного suite два последовательных BFS могут выйти
+    // за глобальные 5 секунд; запас не меняет объём и строгость проверки.
+    10_000
+  );
 
   it('findLevel уважает диапазон оптимума', () => {
     const found = findLevel(mulberry32(23), GEN_6X6, 4, 10, 30_000, 200);
