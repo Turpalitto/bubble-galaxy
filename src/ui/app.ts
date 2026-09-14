@@ -1567,6 +1567,14 @@ export class App {
     if (this.platform.isTV) overlay.querySelector<HTMLElement>('[data-testid=boss-objective-retry]')!.focus({ preventScroll: true });
   }
 
+  /** Победный экран не должен конкурировать с временными подсказками уровня. */
+  private dismissHintToasts(): void {
+    this.root.querySelectorAll<HTMLElement>('.hint-toast').forEach((toast) => {
+      toast.classList.add('gone');
+      window.setTimeout(() => toast.remove(), 300);
+    });
+  }
+
   /** Уникальная победная сцена босса. */
   private showBossVictory(
     def: BossLevelDef,
@@ -2023,6 +2031,7 @@ export class App {
     // Единая точка завершения уровня (реальный выезд машины и e2e-хук ведут сюда).
     const completeLevel = (): void => {
       if (finished) return;
+      this.dismissHintToasts();
       if (boss) {
         const phase = currentPhase(boss.run, boss.def);
         if (phase && !bossObjectiveSatisfied(phase, cur)) {

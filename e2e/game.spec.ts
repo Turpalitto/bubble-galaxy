@@ -137,6 +137,7 @@ test.describe('Переполох во дворе', () => {
     await expect(page.getByTestId('hint-toast')).toContainText('Потяни');
     await dragPiece(page, 'T', 5.7, 0);
     await expect(page.getByTestId('win-overlay')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('hint-toast')).toHaveCount(0);
     await expect(page.getByTestId('win-stars')).toHaveAttribute('data-stars', '3');
     await expect(page.getByTestId('hud-moves')).toHaveText('1');
     await expect(page.getByTestId('win-achievement')).toContainText('Первый выезд');

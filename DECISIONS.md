@@ -67,3 +67,21 @@ Date: 2026-09-10
 ### Decision
 
 Keep synthesized WebAudio with no new asset download; await unlock only for the rare cat interaction while preserving existing sound preference.
+
+## ADR-09140852 — Recorded decision
+
+Status: Accepted
+Date: 2026-09-14
+
+### Decision
+
+Audit remains manual because it is intentionally heavy. Artifact publication is delegated to actions/upload-artifact and the local script never invokes Git. The broken thumbnail screenshot was caused by the dev server being unavailable; assets were verified healthy and no thumbnail fallback was added.
+
+## ADR-09141346 — Recorded decision
+
+Status: Accepted
+Date: 2026-09-14
+
+### Decision
+
+Уровни 129–130 остаются бонусным продолжением главы 10 после сюжетного финала; специальные клетки сохраняются при ремиксе sourceId

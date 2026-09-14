@@ -1,13 +1,15 @@
 /**
  * Генератор главы 10 (версия 2): финал после финального босса.
  *
- * Почему база — двор босса id 100 (7x7, 13 фигур, par 25), а не процедурная доска:
+ * Почему исходная база — двор босса id 100 (7x7, 13 фигур, par 25), а не процедурная доска:
  * пробы `probe7` показали, что случайные 7x7-дворы не достигают par 25+ (максимум
  * ~19), а поднять их лёд/курами/held до якоря не удаётся. Двор босса доказуемо
  * решается за 25 ходов, поэтому глава строится его мутациями: сдвиги 2–4 фигур
  * ломают заученный маршрут (игрок знает двор по боссу), а лёд, куры и held-кнопка
  * добавляют вес поверх. Ровно как `remix.ts` — узнаваемый двор, неработающее
- * старое решение — но в масштабе целой главы и со значимостью механик.
+ * старое решение — но в масштабе целой главы и со значимостью механик. Поздние
+ * продолжения могут брать предыдущий капстоун через `sourceId`; в этом случае
+ * генератор сохраняет специальные клетки и меняет только позиции фигур.
  *
  * Механики добавляются по одной и проверяются на ИТОГОВОМ (комбинированном)
  * уровне: порядок добавления способен обесценить более раннюю. Критерии те же,
@@ -39,13 +41,16 @@ type Mech = 'ice' | 'chickens' | 'held';
 interface Preset {
   name: string;
   id: number;
+  sourceId?: number;
   seed: number;
   iterations: number;
   floor: number;
   maxOptimal: number;
   mechs: Mech[];
+  addMechs?: Mech[];
   iceCount: number;
   title: string;
+  hint?: string;
 }
 
 const PRESETS: Record<string, Preset> = {
@@ -60,7 +65,9 @@ const PRESETS: Record<string, Preset> = {
   l125: { name: 'l125', id: 125, seed: 20260909, iterations: 4000, floor: 25, maxOptimal: 38, mechs: ['chickens', 'held'], iceCount: 0, title: 'Куриный затор' },
   l126: { name: 'l126', id: 126, seed: 20260910, iterations: 4000, floor: 25, maxOptimal: 39, mechs: ['ice', 'chickens'], iceCount: 1, title: 'Тройное испытание' },
   l127: { name: 'l127', id: 127, seed: 20260911, iterations: 4000, floor: 25, maxOptimal: 40, mechs: ['ice', 'held'], iceCount: 1, title: 'Ледяной капкан' },
-  l128: { name: 'l128', id: 128, seed: 20260912, iterations: 6000, floor: 25, maxOptimal: 42, mechs: ['ice', 'chickens', 'held'], iceCount: 1, title: 'Всё сразу' }
+  l128: { name: 'l128', id: 128, seed: 20260912, iterations: 6000, floor: 25, maxOptimal: 42, mechs: ['ice', 'chickens', 'held'], iceCount: 1, title: 'Всё сразу' },
+  l129: { name: 'l129', id: 129, sourceId: 128, seed: 20260913, iterations: 6000, floor: 32, maxOptimal: 44, mechs: ['ice', 'chickens', 'held'], addMechs: [], iceCount: 1, title: 'Двор на пределе', hint: 'Знакомые правила, новый затор: сначала найди машину для кнопки' },
+  l130: { name: 'l130', id: 130, sourceId: 129, seed: 20260914, iterations: 8000, floor: 32, maxOptimal: 46, mechs: ['ice', 'chickens', 'held'], addMechs: [], iceCount: 1, title: 'Последний переполох', hint: 'Последний двор не прощает спешки: считай лёд, курицу и ворота вместе' }
 };
 
 const args = process.argv.slice(2);
@@ -84,9 +91,10 @@ if (run.floor > preset.maxOptimal) {
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const campaign = JSON.parse(readFileSync(join(root, 'src/levels/levels.json'), 'utf8')) as LevelDef[];
-const boss = campaign.find((l) => l.id === 100);
-if (!boss) throw new Error('нет босса id 100 в кампании');
-if (boss.width !== 7 || boss.height !== 7) throw new Error('босс не 7x7 — база главы изменилась');
+const sourceId = preset.sourceId ?? 100;
+const source = campaign.find((l) => l.id === sourceId);
+if (!source) throw new Error(`нет исходного уровня id ${sourceId} в кампании`);
+if (source.width !== 7 || source.height !== 7) throw new Error(`уровень ${sourceId} не 7x7 — база главы изменилась`);
 
 const extraPath = join(root, 'scripts/.chapter10-extra.json');
 let extra: LevelDef[] = [];
@@ -147,7 +155,10 @@ function sweptKeys(level: LevelDef, path: SolveMove[]): Set<string> {
  * не меняя состава двора (та же идея, что `shift` в `remix.ts`).
  */
 function mutateBoss(rng: () => number, base: LevelDef): LevelDef {
-  const axes = ['', 'x', 'y', 'xy'] as const;
+  // У старых баз специальных клеток нет, поэтому поле можно отражать целиком.
+  // Для готового капстоуна отражение только фигур оставило бы лёд/кур/кнопку
+  // на старых координатах; такие продолжения строим безопасными сдвигами.
+  const axes = base.ice?.length || base.chickens?.length || base.gateSwitch ? ([''] as const) : (['', 'x', 'y', 'xy'] as const);
   const axis = axes[Math.floor(rng() * axes.length)];
   const hExtent = (p: LevelDef['pieces'][number]) => (p.dir === 'h' ? p.len : 1);
   const vExtent = (p: LevelDef['pieces'][number]) => (p.dir === 'v' ? p.len : 1);
@@ -330,13 +341,14 @@ function finalChecksPass(level: LevelDef, mechs: Mech[], floor: number, maxOptim
 }
 
 const rng = mulberry32(run.seed);
+const addMechs = preset.addMechs ?? preset.mechs;
 const drop = { gen: 0, valid: 0, dup: 0, unsolvable: 0, range: 0, noIce: 0, noChicken: 0, noHeld: 0, finalFail: 0, star: 0 };
 let found: { level: LevelDef; optimal: number; withStar: number } | null = null;
 
 for (let i = 0; i < run.iterations && !found; i++) {
   if (i % 100 === 0) console.error(`  … итерация ${i}/${run.iterations}, drop=${JSON.stringify(drop)}`);
 
-  const cand0 = mutateBoss(rng, boss);
+  const cand0 = mutateBoss(rng, source);
   if (validateLevel(cand0).filter((e) => !e.includes('par')).length > 0) {
     drop.valid++;
     continue;
@@ -358,10 +370,14 @@ for (let i = 0; i < run.iterations && !found; i++) {
     drop.range++;
     continue;
   }
+  if (addMechs.length === 0 && base.optimal < run.floor) {
+    drop.range++;
+    continue;
+  }
 
   let current = cand0;
 
-  if (preset.mechs.includes('ice')) {
+  if (addMechs.includes('ice')) {
     const iced = addMeaningfulIce(current, preset.iceCount);
     if (!iced) {
       drop.noIce++;
@@ -375,7 +391,7 @@ for (let i = 0; i < run.iterations && !found; i++) {
     }
   }
 
-  if (preset.mechs.includes('chickens')) {
+  if (addMechs.includes('chickens')) {
     const withChicken = addMeaningfulChicken(current, run.floor, preset.maxOptimal + 4, run.fast);
     if (!withChicken) {
       drop.noChicken++;
@@ -389,7 +405,7 @@ for (let i = 0; i < run.iterations && !found; i++) {
     }
   }
 
-  if (preset.mechs.includes('held')) {
+  if (addMechs.includes('held')) {
     const heldLevel = addHeld(current);
     if (!heldLevel) {
       drop.noHeld++;
@@ -421,17 +437,19 @@ for (let i = 0; i < run.iterations && !found; i++) {
 console.log(`preset=${preset.name} found=${!!found} drop=${JSON.stringify(drop)}`);
 if (found) {
   const mechanics = [
-    ...new Set(found.level.pieces.map((p) => p.kind).filter((k) => k === 'truck' || k === 'tractor' || k === 'crate')),
-    ...(found.level.star ? ['star'] : []),
-    ...(found.level.gateSwitch ? ['gate-switch'] : []),
-    ...(preset.mechs.includes('ice') ? ['ice'] : []),
-    ...(preset.mechs.includes('chickens') ? ['chickens'] : []),
-    ...(preset.mechs.includes('held') ? ['gate-switch'] : [])
+    ...new Set([
+      ...found.level.pieces.map((p) => p.kind).filter((k) => k === 'truck' || k === 'tractor' || k === 'crate'),
+      ...(found.level.star ? ['star' as const] : []),
+      ...(found.level.gateSwitch ? ['gate-switch' as const] : []),
+      ...(preset.mechs.includes('ice') ? ['ice' as const] : []),
+      ...(preset.mechs.includes('chickens') ? ['chickens' as const] : [])
+    ])
   ];
   const out: LevelDef = {
     ...found.level,
     id: preset.id,
     name: preset.title,
+    hint: preset.hint ?? found.level.hint,
     par: found.optimal,
     par2: Math.max(found.optimal + 2, found.withStar),
     difficulty: found.optimal <= 5 ? 'easy' : found.optimal <= 10 ? 'medium' : 'hard',

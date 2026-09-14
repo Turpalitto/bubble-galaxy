@@ -1346,6 +1346,8 @@ const EN_NAMES: Dict = {
   'Тройное испытание': 'Triple Trial',
   'Ледяной капкан': 'Icy Trap',
   'Всё сразу': 'All at Once',
+  'Двор на пределе': 'Yard at the Limit',
+  'Последний переполох': 'Final Pandemonium',
   // Ремиксы Высшей лиги — тот же двор, изменённый расклад.
   'Сено и бочка': 'Hay and Barrel',
   'Погреб переставлен': 'Cellar Rearranged',
@@ -1500,6 +1502,10 @@ const EN_HINTS: Dict = {
   'Звезда, лёд и куры: три каприза в одном дворе': 'Star, ice and hens: three whims in one yard',
   'Капкан держит ворота замкнутыми — ищи сухую дорожку': 'The trap keeps the gate locked — find a dry lane',
   'Финал двора: лёд, куры и кнопка — всё сразу. Не спешись': 'Yard finale: ice, hens and the button — all at once',
+  'Знакомые правила, новый затор: сначала найди машину для кнопки':
+    'Familiar rules, a new jam: first find a vehicle to hold the button',
+  'Последний двор не прощает спешки: считай лёд, курицу и ворота вместе':
+    'The final yard leaves no room for haste: count the ice, hen and gate together',
   // Механики Высшей лиги: правило встречается впервые, подсказка обязательна.
   'Кнопка держит ворота: съехал с неё — створки захлопнулись':
     'The button only holds the gate while occupied — drive off and it slams shut',
@@ -1598,6 +1604,8 @@ const TR_NAMES: Dict = {
   'Тройное испытание': 'Üçlü Sınav',
   'Ледяной капкан': 'Buz Tuzağı',
   'Всё сразу': 'Hepsi Birden',
+  'Двор на пределе': 'Avlu Sınırda',
+  'Последний переполох': 'Son Kargaşa',
   // Ремиксы Высшей лиги — тот же двор, изменённый расклад.
   'Сено и бочка': 'Saman ve Fıçı',
   'Погреб переставлен': 'Yeniden Dizilmiş Kiler',
@@ -1752,6 +1760,10 @@ const TR_HINTS: Dict = {
   'Звезда, лёд и куры: три каприза в одном дворе': 'Yıldız, buz ve tavuklar: tek bahçede üç kapris',
   'Капкан держит ворота замкнутыми — ищи сухую дорожку': 'Tuzağı kapıyı kilitli tutar — kuru bir şerit bul',
   'Финал двора: лёд, куры и кнопка — всё сразу. Не спешись': 'Bahçe finali: buz, tavuklar ve düğme — hepsi birden',
+  'Знакомые правила, новый затор: сначала найди машину для кнопки':
+    'Tanıdık kurallar, yeni bir tıkanıklık: önce düğmeyi tutacak aracı bul',
+  'Последний двор не прощает спешки: считай лёд, курицу и ворота вместе':
+    'Son bahçe aceleyi affetmez: buzu, tavuğu ve kapıyı birlikte hesapla',
   // Yüksek Lig mekanikleri: kural ilk kez karşılaşılıyor, ipucu zorunlu.
   'Кнопка держит ворота: съехал с неё — створки захлопнулись':
     'Düğme kapıyı sadece üstünde biri varken tutar — çekilirsen kapı çarparak kapanır',

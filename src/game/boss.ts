@@ -195,7 +195,7 @@ export function bossObjectiveSatisfied(phase: BossPhase, state: { starCollected:
 
 /**
  * Уровень фазы: ремикс источника, если он задан, иначе сам источник.
- * Id ремикса — 2000 + id босса × 10 + индекс фазы: вне кампании (1-128) и
+ * Id ремикса — 2000 + id босса × 10 + индекс фазы: вне кампании (1-130) и
  * вне id-пространства лиги (901-930), по нему не считаются звёзды/главы.
  */
 export function bossPhaseLevel(phase: BossPhase, source: LevelDef, bossId: number, phaseIndex: number): LevelDef {

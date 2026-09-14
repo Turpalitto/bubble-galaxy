@@ -32,6 +32,8 @@ The 128-level game is release-ready locally. Runtime art and audio remain in `pu
 
 ## Recent significant changes
 
+- 2026-09-14: Добавлены уровни 129–130, расширена глава 10, обновлены локализации, документация и генератор капстоунов
+- 2026-09-14: Added a manual read-only GitHub Actions playthrough audit with uploaded artifacts; added a full UI planner/driver that owns its preview server, avoids Git mutations, and fails on level or page errors; dismisses transient hint toasts on level completion; ignored generated audit artifacts. Kept existing illustrated thumbnails and rejected stale reports, binary screenshots, force-push publishing, allowedHosts:true, and visual regressions.
 - 2026-09-11: Added body gait, alternating paws, breathing, blinking, ear twitches, looking around, stripes, bristling angry posture and a more expressive turn; made GameAudio.unlock await Safari resume; changed meow to a louder three-formant two-syllable sound; added suspended-context audio regression coverage.
 - 2026-09-11: Turned the static yard cat into a lightweight animated SVG character on a dedicated responsive overlay; added walking route, stepping paws, direction changes, angry turn reaction, existing meow sound, pointer and keyboard activation, localized accessible labels, and regression tests.
 - 2026-09-10: Removed historical audit media, obsolete reports and the 100-level release archive; added current async solver, Endless worker, audio and accessibility improvements
